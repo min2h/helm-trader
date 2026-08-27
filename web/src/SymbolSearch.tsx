@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 
 export type CatalogItem = { symbol: string; base: string; quote: string; market?: string };
 
-const KO_BASE: Record<string, string> = {
+const KO_QUERY: Record<string, string> = {
   비트코인: "BTC",
   비트: "BTC",
   이더리움: "ETH",
@@ -10,29 +10,30 @@ const KO_BASE: Record<string, string> = {
   솔라나: "SOL",
   리플: "XRP",
   도지: "DOGE",
-  에이다: "ADA",
-  아발란체: "AVAX",
-  링크: "LINK",
-  수이: "SUI",
-  톤: "TON",
 };
 
 function haystack(item: CatalogItem): string {
-  return `${item.symbol} ${item.base} ${item.quote}`.toUpperCase();
+  return `${item.symbol} ${item.base} ${item.quote} ${item.market || ""}`.toUpperCase();
 }
 
 function queryTokens(raw: string): string[] {
   const q = raw.trim();
   if (!q) return [];
-  const mapped = KO_BASE[q] || KO_BASE[q.replace(/\s+/g, "")];
+  const mapped = KO_QUERY[q] || KO_QUERY[q.replace(/\s+/g, "")];
   return [q.toUpperCase(), mapped].filter(Boolean) as string[];
+}
+
+function marketLabel(market?: string): string {
+  if (market === "spot") return "현물";
+  if (market === "futures") return "선물";
+  return "";
 }
 
 export function SymbolSearch({
   value,
   onChange,
   catalog,
-  placeholder = "BTC, 비트코인, ETHUSDT…",
+  placeholder = "심볼 검색 (BTC, ETHUSDT, 비트코인)",
 }: {
   value: string;
   onChange: (symbol: string) => void;
@@ -41,14 +42,12 @@ export function SymbolSearch({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const tokens = queryTokens(query || value);
+  const tokens = queryTokens(query);
   const matches = useMemo(() => {
-    const list = catalog.length ? catalog : [{ symbol: value || "BTCUSDT", base: "BTC", quote: "USDT" }];
-    if (!tokens.length) return list.slice(0, 12);
-    return list
-      .filter((item) => tokens.some((token) => haystack(item).includes(token)))
-      .slice(0, 20);
-  }, [catalog, tokens, value]);
+    if (!catalog.length) return [];
+    if (!tokens.length) return catalog.slice(0, 40);
+    return catalog.filter((item) => tokens.some((token) => haystack(item).includes(token))).slice(0, 80);
+  }, [catalog, tokens]);
 
   return (
     <div className="symbol-search">
@@ -57,7 +56,7 @@ export function SymbolSearch({
         placeholder={placeholder}
         autoComplete="off"
         onFocus={() => {
-          setQuery(value);
+          setQuery("");
           setOpen(true);
         }}
         onChange={(event) => {
@@ -68,7 +67,10 @@ export function SymbolSearch({
       />
       {open ? (
         <ul className="symbol-menu">
-          {matches.length === 0 ? <li className="muted">검색 결과 없음</li> : null}
+          <li className="muted">
+            {catalog.length ? `${catalog.length.toLocaleString("en-US")}종 조회 · 검색어를 입력하세요` : "종목 목록을 불러오는 중…"}
+          </li>
+          {matches.length === 0 && catalog.length ? <li className="muted">검색 결과 없음</li> : null}
           {matches.map((item) => (
             <li key={`${item.market || "m"}-${item.symbol}`}>
               <button
@@ -82,7 +84,7 @@ export function SymbolSearch({
               >
                 <strong>{item.symbol}</strong>
                 <span className="muted">
-                  {item.base}/{item.quote}
+                  {marketLabel(item.market)} {item.base}/{item.quote}
                 </span>
               </button>
             </li>

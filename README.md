@@ -46,22 +46,24 @@
 | 그리드형 현황/설정 대시보드, Binance 시세 차트(이 PC는 `api.binance.com` 403이라 Vision 호스트로 폴백), 보고서, 다크/라이트 | `close_position` 실부착 |
 | 로딩바, 입력 검증, 숫자 `#,##0` / `#,##0.00` 포맷 | |
 | 개인 LLM 키 채팅 + 고정 시스템 프롬프트 + 뉴스 헤드라인 | 유료 뉴스 API |
-| 검색형 종목 선택, 수동/AI 나란히, 공인 IP 바인드 | 공인망 DDoS 완화(Cloudflare). 포트포워드 시 로그인·레이트 리밋만 있음 |
+| 검색형 종목 선택(현물+선물 DB 저장), 수동/AI 나란히 | 공인망 DDoS 완화(Cloudflare). 포트포워드 시 로그인·레이트 리밋만 있음 |
+| USDT는 `$`, 원 환산은 `₩` | |
 
 ### 17.2 사용자가 발급해야 하는 키
 
-`.env.example`을 `.env`로 복사한다. 유저 Binance/LLM 키는 `.env`가 아니라 **대시보드 설정**에 넣는다.
+`.env.example`을 `.env`로 복사한다. 유저 Binance/LLM 키는 `.env`가 아니라 **대시보드 설정**에 넣는다. 설정 화면에도 같은 목록이 있다.
 
-| 환경변수 | 필수 시점 | 발급 |
-| --- | --- | --- |
-| `HELM_ADMIN_EMAILS` | 첫 관리자 로그인 | 본인 OAuth 이메일 |
-| `HELM_MASTER_KEY` | 개인 키 암호화 | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
-| `HELM_PUBLIC_URL` | OAuth 콜백 | 공인 IP면 `http://<공인IP>:8080`. HTTPS가 필요하면 Caddy |
-| `GOOGLE_CLIENT_ID/SECRET` | 구글 로그인 | Google Cloud OAuth. redirect: `{PUBLIC_URL}/api/auth/google/callback` |
-| `SMTP_*` | 메일 알림 | 지메일 앱 비밀번호 등 |
-| 개인 LLM 키 | AI 채팅/자동분석 | 각 사용자가 설정 화면에 입력 |
-| 개인 Binance 키 | 이후 실주문 | 출금 OFF, IP 화이트리스트 |
-| 공유기 포트포워드 | 폰/외부 PC 접속 | `HELM_HOST=0.0.0.0` 후 WAN→이 PC 포트. 방화벽 inbound 허용 |
+| 무엇 | 넣는 곳 | 발급 사이트 | 방법 |
+| --- | --- | --- | --- |
+| `HELM_ADMIN_EMAILS` | `.env` | — | 첫 관리자로 쓸 Gmail |
+| `HELM_MASTER_KEY` | `.env` | 로컬 생성 | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+| `GOOGLE_CLIENT_ID/SECRET` | `.env` | [Google Cloud 사용자 인증 정보](https://console.cloud.google.com/apis/credentials) | 웹 앱 OAuth. JS 원본 `http://127.0.0.1:8090`, redirect `http://127.0.0.1:8090/api/auth/google/callback` |
+| 개인 Binance key/secret | 설정 화면 | [Binance API Management](https://www.binance.com/en/my/settings/api-management) | 출금 OFF, IP 제한, 거래 권한만 |
+| Anthropic API 키 | 설정 화면 | [Anthropic Console](https://console.anthropic.com/settings/keys) | Create Key 후 LLM=Anthropic |
+| OpenAI API 키 | 설정 화면 | [OpenAI API keys](https://platform.openai.com/api-keys) | Create key 후 LLM=OpenAI |
+| `TELEGRAM_BOT_TOKEN` / `CHAT_ID` | `.env` | [BotFather](https://t.me/BotFather) | `/newbot` 후 토큰, 본인 채팅 ID |
+| `SMTP_*` | `.env` | [Gmail 앱 비밀번호](https://myaccount.google.com/apppasswords) | smtp.gmail.com:587, 2단계 인증 필요 |
+| `HELM_PUBLIC_URL` | `.env` | — | 로컬은 `http://127.0.0.1:8090` |
 
 로컬에서 OAuth 앱이 없으면 `HELM_AUTH_DEV=true` 후 로그인 화면의 "로컬 개발 로그인"을 쓴다.
 

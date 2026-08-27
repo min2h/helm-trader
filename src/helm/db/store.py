@@ -87,6 +87,16 @@ CREATE TABLE IF NOT EXISTS login_attempts (
     failures INTEGER NOT NULL DEFAULT 0,
     locked_until TEXT
 );
+CREATE TABLE IF NOT EXISTS market_symbols (
+    symbol TEXT NOT NULL,
+    base TEXT NOT NULL,
+    quote TEXT NOT NULL,
+    market TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'TRADING',
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (symbol, market)
+);
+CREATE INDEX IF NOT EXISTS idx_market_symbols_quote ON market_symbols(quote);
 """
 
 
@@ -424,6 +434,56 @@ class Database:
     def clear_failures(self, ip: str) -> None:
         self._conn.execute("DELETE FROM login_attempts WHERE ip=?", (ip,))
         self._conn.commit()
+
+    def replace_market_symbols(self, rows: list[dict]) -> int:
+        stamp = now_iso()
+        self._conn.execute("DELETE FROM market_symbols")
+        self._conn.executemany(
+            """INSERT INTO market_symbols (symbol, base, quote, market, status, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            [
+                (
+                    str(row["symbol"]).upper(),
+                    str(row.get("base") or ""),
+                    str(row.get("quote") or ""),
+                    str(row.get("market") or "spot"),
+                    str(row.get("status") or "TRADING"),
+                    stamp,
+                )
+                for row in rows
+            ],
+        )
+        self._conn.commit()
+        return len(rows)
+
+    def list_market_symbols(self, market: str = "all", q: str = "", limit: int = 8000) -> list[dict]:
+        where = ["1=1"]
+        args: list[object] = []
+        if market in {"spot", "futures"}:
+            where.append("market=?")
+            args.append(market)
+        if q.strip():
+            needle = f"%{q.strip().upper()}%"
+            where.append("(symbol LIKE ? OR base LIKE ? OR quote LIKE ?)")
+            args.extend([needle, needle, needle])
+        args.append(max(1, min(int(limit), 12000)))
+        rows = self._conn.execute(
+            f"SELECT symbol, base, quote, market, status FROM market_symbols WHERE {' AND '.join(where)} "
+            "ORDER BY CASE quote WHEN 'USDT' THEN 0 WHEN 'USDC' THEN 1 ELSE 2 END, symbol LIMIT ?",
+            args,
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def market_symbol_count(self, market: str = "all") -> int:
+        if market in {"spot", "futures"}:
+            row = self._conn.execute("SELECT COUNT(*) AS n FROM market_symbols WHERE market=?", (market,)).fetchone()
+        else:
+            row = self._conn.execute("SELECT COUNT(*) AS n FROM market_symbols").fetchone()
+        return int(row["n"] if row else 0)
+
+    def market_symbols_updated_at(self) -> str | None:
+        row = self._conn.execute("SELECT MAX(updated_at) AS ts FROM market_symbols").fetchone()
+        return str(row["ts"]) if row and row["ts"] else None
 
 
 for _name, _fn in list(vars(Database).items()):

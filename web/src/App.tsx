@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type Me } from "./api";
+import { formatMoney } from "./format";
+import { pickDefaultSymbol } from "./pickSymbol";
 import { LoadingBar } from "./LoadingBar";
 import { SymbolSearch, type CatalogItem } from "./SymbolSearch";
 import { Admin } from "./pages/Admin";
@@ -28,7 +30,8 @@ export function App() {
   const [report, setReport] = useState("");
   const [jobs, setJobs] = useState<Array<Record<string, unknown>>>([]);
   const [bars, setBars] = useState<Array<{ time: number; open: number; high: number; low: number; close: number }>>([]);
-  const [chartSymbol, setChartSymbol] = useState("BTCUSDT");
+  const [chartSymbol, setChartSymbol] = useState("");
+  const [usdKrw, setUsdKrw] = useState(0);
   const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
   const [headlines, setHeadlines] = useState<Array<{ title: string }>>([]);
   const [users, setUsers] = useState<Me[]>([]);
@@ -66,7 +69,14 @@ export function App() {
       take(api.symbols(), setSymbols),
       take(api.report(), (r) => setReport(r.markdown)),
       take(api.jobs(), setJobs),
-      take(api.ticker(chartSymbol || "BTCUSDT"), setMark),
+      ...(chartSymbol
+        ? [
+            take(api.ticker(chartSymbol), (row) => {
+              setMark(row);
+              if (row.usd_krw) setUsdKrw(row.usd_krw);
+            }),
+          ]
+        : []),
     ]);
     setError(errors[0] ?? "");
     if (!opts?.silent) setPageLoading(false);
@@ -115,14 +125,32 @@ export function App() {
 
   useEffect(() => {
     if (!me || me.status !== "approved") return;
-    const market = String(params?.market_mode || "futures") === "spot" ? "spot" : "futures";
-    void api.catalog(market).then((res) => setCatalog(res.symbols)).catch(() => setCatalog([]));
-  }, [me?.id, me?.status, params?.market_mode]);
+    void api
+      .catalog("all")
+      .then((res) => {
+        setCatalog(res.symbols);
+        setChartSymbol((current) => {
+          if (current) return current;
+          return pickDefaultSymbol(res.symbols);
+        });
+      })
+      .catch(() => setCatalog([]));
+  }, [me?.id, me?.status]);
+
+  useEffect(() => {
+    if (!chartSymbol) return;
+    void api
+      .ticker(chartSymbol)
+      .then((row) => {
+        setMark(row);
+        if (row.usd_krw) setUsdKrw(row.usd_krw);
+      })
+      .catch(() => undefined);
+  }, [chartSymbol]);
 
   useEffect(() => {
     if (tab === "chart") {
-      const symbol = chartSymbol || String(jobs[0]?.symbol || "BTCUSDT");
-      void loadChart(symbol);
+      if (chartSymbol) void loadChart(chartSymbol);
     }
     if (tab === "invest" && me?.status === "approved") {
       void api.messages().then(setMessages).catch(() => undefined);
@@ -220,6 +248,7 @@ export function App() {
           status={status}
           params={params}
           mark={mark}
+          usdKrw={usdKrw}
           loading={pageLoading || Boolean(actionBusy)}
           onOpenSettings={() => setTab("settings")}
           onSoftStop={() =>
@@ -253,7 +282,7 @@ export function App() {
               <h2>차트</h2>
               <p className="muted">
                 초록/빨간 가로선은 첫 번째 수동밴드의 상한·하한입니다.
-                {mark?.price != null ? ` 지금 ${mark.symbol} ${Number(mark.price).toLocaleString("en-US", { maximumFractionDigits: 2 })}` : ""}
+                {mark?.price != null ? ` 지금 ${mark.symbol} ${formatMoney(mark.price, usdKrw, 2)}` : ""}
               </p>
             </div>
           </div>
@@ -295,6 +324,7 @@ export function App() {
           <div className="invest-layout">
             <ManualTrade
               compact
+              usdKrw={usdKrw}
               jobs={jobs}
               catalog={catalog}
               onCreate={async (body) => {
@@ -333,6 +363,7 @@ export function App() {
         <Settings
           me={me}
           params={params}
+          usdKrw={usdKrw}
           onPatch={async (key, value) => {
             await api.putParams({ [key]: value });
             await refresh({ silent: true });

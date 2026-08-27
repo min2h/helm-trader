@@ -1,5 +1,5 @@
 import { LoadingBar } from "../LoadingBar";
-import { formatInt, formatPct, formatUsdt, formatWhen } from "../format";
+import { formatInt, formatMoney, formatPct, formatWhen } from "../format";
 import {
   AI_LEVEL,
   MARKET_MODE,
@@ -30,6 +30,7 @@ export function Dashboard({
   onOpenSettings,
   loading = false,
   mark = null,
+  usdKrw = 0,
 }: {
   status: Record<string, unknown> | null;
   params: Record<string, unknown> | null;
@@ -39,6 +40,7 @@ export function Dashboard({
   onOpenSettings: () => void;
   loading?: boolean;
   mark?: { symbol: string; price: number | null } | null;
+  usdKrw?: number;
 }) {
   if (!status) return <LoadingBar show label="상태를 불러오는 중…" />;
   const state = String(status.run_state);
@@ -69,7 +71,7 @@ export function Dashboard({
       <div className="grid-stats">
         <article className="stat">
           <dt>시세 {mark?.symbol || "BTCUSDT"}</dt>
-          <dd>{mark?.price == null ? "연결 확인 중" : formatUsdt(mark.price, 2)}</dd>
+          <dd>{mark?.price == null ? "연결 확인 중" : formatMoney(mark.price, usdKrw, 2)}</dd>
         </article>
         <article className="stat">
           <dt>오늘 손익</dt>
@@ -89,7 +91,7 @@ export function Dashboard({
         </article>
         <article className="stat">
           <dt>MIN 잔고</dt>
-          <dd>{formatUsdt(status.min_equity_usdt || 0, 0)}</dd>
+          <dd>{formatMoney(status.min_equity_usdt || 0, usdKrw, 0)}</dd>
         </article>
         <article className="stat">
           <dt>AI 배치</dt>

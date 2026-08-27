@@ -3,7 +3,8 @@ import type { Me } from "../api";
 import { LoadingBar } from "../LoadingBar";
 import { NumberField } from "../NumberField";
 import { RadioGroup } from "../RadioGroup";
-import { formatDecimal, formatInt, formatPct, formatUsdt, isEmail, parseAmount } from "../format";
+import { formatDecimal, formatInt, formatPct, formatMoney, isEmail, parseAmount } from "../format";
+import { KeyGuide } from "./KeyGuide";
 
 const GROUPS = [
   {
@@ -79,12 +80,14 @@ export function Settings({
   onPatch,
   onProfile,
   onSecrets,
+  usdKrw = 0,
 }: {
   me: Me;
   params: Record<string, unknown> | null;
   onPatch: (key: string, value: string) => void | Promise<void>;
   onProfile: (body: Record<string, unknown>) => Promise<void>;
   onSecrets: (body: Record<string, string>) => Promise<void>;
+  usdKrw?: number;
 }) {
   const [nickname, setNickname] = useState(me.nickname);
   const [emailAddr, setEmailAddr] = useState(me.notify_address);
@@ -171,8 +174,8 @@ export function Settings({
               />
             </label>
             <label>
-              청산방지 MIN USDT
-              <NumberField value={minEq} onChange={setMinEq} decimals={0} min={0} placeholder="0" />
+              청산방지 MIN ($)
+              <NumberField value={minEq} onChange={setMinEq} decimals={0} min={0} placeholder="$0" />
             </label>
             <label>
               테마
@@ -283,6 +286,7 @@ export function Settings({
           </button>
         </form>
       </div>
+      <KeyGuide />
 
       <div className="page-head">
         <div>
@@ -340,7 +344,7 @@ export function Settings({
         </article>
         <article className="stat">
           <dt>MIN 잔고</dt>
-          <dd>{formatUsdt(risk.min_equity_usdt ?? me.min_equity_usdt, 0)}</dd>
+          <dd>{formatMoney(risk.min_equity_usdt ?? me.min_equity_usdt, usdKrw, 0)}</dd>
         </article>
       </div>
 

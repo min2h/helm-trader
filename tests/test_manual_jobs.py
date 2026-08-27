@@ -12,6 +12,7 @@ def test_manual_band_job(tmp_path) -> None:
                 helm_data_dir=tmp_path,
                 helm_auth_dev=True,
                 helm_rate_limit=False,
+                helm_catalog_warm=False,
                 helm_admin_emails="a@local",
             )
         )

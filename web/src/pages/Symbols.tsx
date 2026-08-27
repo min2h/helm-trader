@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LoadingBar } from "../LoadingBar";
 import { formatInt } from "../format";
+import { pickDefaultSymbol } from "../pickSymbol";
 import { SymbolSearch, type CatalogItem } from "../SymbolSearch";
 
 export function Symbols({
@@ -16,10 +17,17 @@ export function Symbols({
   onAddActive: (symbol: string) => Promise<void>;
   onRemoveActive: (symbol: string) => Promise<void>;
 }) {
-  const [pick, setPick] = useState("BTCUSDT");
+  const [pick, setPick] = useState("");
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!pick && catalog.length) {
+      const next = pickDefaultSymbol(catalog);
+      if (next) setPick(next);
+    }
+  }, [catalog, pick]);
 
   if (!symbols) return <LoadingBar show label="종목 목록을 불러오는 중…" />;
 
@@ -32,7 +40,9 @@ export function Symbols({
         <div>
           <p className="eyebrow">유니버스</p>
           <h2>종목</h2>
-          <p className="muted">코드를 외울 필요 없습니다. 검색해서 고르면 됩니다. 승인 전에는 엔진이 새 심볼을 구독하지 않습니다.</p>
+          <p className="muted">
+            거래소에서 조회한 {formatInt(catalog.length)}종(현물+선물)을 검색합니다. 승인 전에는 엔진이 새 심볼을 구독하지 않습니다.
+          </p>
         </div>
       </div>
       <LoadingBar show={Boolean(busy)} label={busy} />

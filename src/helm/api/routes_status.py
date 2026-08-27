@@ -9,8 +9,9 @@ from helm.api.deps import actor_for, approved_user, current_user, state_of
 from helm.api.sse import status_payload
 from helm.auth.limits import limiter
 from helm.db.models import User
-from helm.research.catalog import fetch_usdt_catalog
+from helm.research.catalog import load_catalog
 from helm.research.data import fetch_klines, fetch_last_price
+from helm.research.fx import usd_krw, usdt_to_krw
 from helm.risk.circuit import blocks_new_entry
 
 router = APIRouter()
@@ -98,15 +99,29 @@ def delete_job(job_id: int, request: Request, user: User = Depends(_user)) -> di
 
 @router.get("/market/ticker")
 def ticker(symbol: str = "BTCUSDT", market: str = "futures") -> dict:
+    rate = usd_krw()
     try:
-        return {**fetch_last_price(symbol, market), "error": None}
+        row = fetch_last_price(symbol, market)
+        price = float(row["price"])
+        return {
+            **row,
+            "usd_krw": rate,
+            "price_krw": usdt_to_krw(price, rate),
+            "error": None,
+        }
     except Exception as exc:
-        return {"symbol": symbol.upper(), "price": None, "error": str(exc)[:240]}
+        return {
+            "symbol": symbol.upper(),
+            "price": None,
+            "usd_krw": rate,
+            "price_krw": None,
+            "error": str(exc)[:240],
+        }
 
 
 @router.get("/market/catalog")
-def market_catalog(market: str = "futures") -> dict:
-    return {"market": market, "symbols": fetch_usdt_catalog(market)}
+def market_catalog(request: Request, market: str = "all", refresh: bool = False) -> dict:
+    return load_catalog(state_of(request).db, market, refresh=refresh)
 
 
 @router.get("/market/klines")

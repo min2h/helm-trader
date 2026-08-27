@@ -134,6 +134,11 @@ button,
   position: relative;
 }
 
+.help-card a,
+.auth-card a {
+  color: var(--accent);
+}
+
 .symbol-menu {
   position: absolute;
   z-index: 20;
@@ -142,7 +147,7 @@ button,
   margin: 4px 0 0;
   padding: 6px;
   list-style: none;
-  max-height: 240px;
+  max-height: 320px;
   overflow: auto;
   background: var(--panel);
   border: 1px solid var(--line);

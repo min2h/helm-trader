@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     helm_master_key: str = ""
     helm_auth_dev: bool = False
     helm_rate_limit: bool = True
+    helm_catalog_warm: bool = True
     helm_cors_origins: str = "http://127.0.0.1:5173,http://localhost:5173"
 
     redis_url: str = "redis://127.0.0.1:6379/0"

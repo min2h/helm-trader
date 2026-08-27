@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import threading
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -20,8 +22,11 @@ from helm.api.routes_params import router as params_router
 from helm.api.routes_status import router as status_router
 from helm.auth.crypto import SecretBox
 from helm.db.store import Database
+from helm.research.catalog import load_catalog
 from helm.research.http import use_system_certs
 from helm.settings import Settings, get_settings
+
+log = logging.getLogger(__name__)
 
 
 class BodyLimitMiddleware(BaseHTTPMiddleware):
@@ -67,6 +72,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(control_router, prefix="/api")
     app.include_router(status_router, prefix="/api")
     app.include_router(ai_router, prefix="/api")
+
+    def _warm_catalog() -> None:
+        try:
+            payload = load_catalog(db, "all", refresh=True)
+            log.info("market catalog warmed count=%s", payload.get("count"))
+        except Exception:
+            log.exception("market catalog warm failed")
+
+    if settings.helm_catalog_warm:
+        threading.Thread(target=_warm_catalog, daemon=True, name="catalog-warm").start()
 
     web_dist = Path(__file__).resolve().parents[3] / "web" / "dist"
     if web_dist.is_dir():

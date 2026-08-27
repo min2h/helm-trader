@@ -9,6 +9,7 @@ def _client(tmp_path, admin_email: str = "admin@local"):
         helm_data_dir=tmp_path,
         helm_auth_dev=True,
         helm_rate_limit=False,
+        helm_catalog_warm=False,
         helm_admin_emails=admin_email,
         helm_master_key="",
     )

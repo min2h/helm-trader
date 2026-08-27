@@ -20,6 +20,10 @@ export function ChartPanel({
     if (!ref.current) return;
     const chart = createChart(ref.current, {
       height: 420,
+      localization: {
+        priceFormatter: (price: number) =>
+          `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      },
       layout: {
         background: { type: ColorType.Solid, color: light ? "#ffffff" : "#151b23" },
         textColor: light ? "#667588" : "#8b97a6",

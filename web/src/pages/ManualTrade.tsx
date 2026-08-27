@@ -1,14 +1,16 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LoadingBar } from "../LoadingBar";
 import { NumberField } from "../NumberField";
 import { SymbolSearch, type CatalogItem } from "../SymbolSearch";
-import { formatUsdt, formatDecimal, parseAmount } from "../format";
+import { formatDecimal, formatMoney, parseAmount } from "../format";
+import { pickDefaultSymbol } from "../pickSymbol";
 import { SCHEDULE, labelOf } from "../labels";
 
 export function ManualTrade({
   jobs,
   catalog,
   compact = false,
+  usdKrw = 0,
   onCreate,
   onToggle,
   onDelete,
@@ -16,11 +18,12 @@ export function ManualTrade({
   jobs: Array<Record<string, unknown>>;
   catalog: CatalogItem[];
   compact?: boolean;
+  usdKrw?: number;
   onCreate: (body: Record<string, unknown>) => Promise<void>;
   onToggle: (id: number, enabled: boolean) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
 }) {
-  const [symbol, setSymbol] = useState("BTCUSDT");
+  const [symbol, setSymbol] = useState("");
   const [lower, setLower] = useState("60000");
   const [upper, setUpper] = useState("75000");
   const [size, setSize] = useState("100");
@@ -31,13 +34,20 @@ export function ManualTrade({
   const lowerN = parseAmount(lower);
   const upperN = parseAmount(upper);
   const sizeN = parseAmount(size);
+  useEffect(() => {
+    if (!symbol && catalog.length) {
+      const next = pickDefaultSymbol(catalog);
+      if (next) setSymbol(next);
+    }
+  }, [catalog, symbol]);
+
   const errors = useMemo(() => {
     const out: string[] = [];
     if (!symbol.trim()) out.push("종목을 고르세요.");
     if (lowerN === null || lowerN <= 0) out.push("하한은 0보다 큰 숫자여야 합니다.");
     if (upperN === null || upperN <= 0) out.push("상한은 0보다 큰 숫자여야 합니다.");
     if (lowerN !== null && upperN !== null && lowerN >= upperN) out.push("하한은 상한보다 작아야 합니다.");
-    if (sizeN === null || sizeN < 10) out.push("금액은 10 USDT 이상이어야 합니다.");
+    if (sizeN === null || sizeN < 10) out.push("금액은 $10 이상이어야 합니다.");
     return out;
   }, [symbol, lowerN, upperN, sizeN]);
 
@@ -96,8 +106,8 @@ export function ManualTrade({
           <NumberField value={upper} onChange={setUpper} decimals={2} min={0} placeholder="75,000.00" />
         </label>
         <label>
-          금액 USDT
-          <NumberField value={size} onChange={setSize} decimals={0} min={10} placeholder="100" />
+          금액 ($)
+          <NumberField value={size} onChange={setSize} decimals={0} min={10} placeholder="$100" />
         </label>
         <label>
           스케줄
@@ -132,7 +142,7 @@ export function ManualTrade({
               </div>
               <div>
                 <dt>금액</dt>
-                <dd>{formatUsdt(job.size_usdt, 0)}</dd>
+                <dd>{formatMoney(job.size_usdt, usdKrw, 0)}</dd>
               </div>
               <div>
                 <dt>스케줄</dt>
