@@ -37,6 +37,8 @@ export function App() {
   const [pageLoading, setPageLoading] = useState(false);
   const [actionBusy, setActionBusy] = useState("");
   const [chartLoading, setChartLoading] = useState(false);
+  const [chartError, setChartError] = useState("");
+  const [mark, setMark] = useState<{ symbol: string; price: number | null } | null>(null);
 
   async function loadMe() {
     try {
@@ -64,6 +66,7 @@ export function App() {
       take(api.symbols(), setSymbols),
       take(api.report(), (r) => setReport(r.markdown)),
       take(api.jobs(), setJobs),
+      take(api.ticker(chartSymbol || "BTCUSDT"), setMark),
     ]);
     setError(errors[0] ?? "");
     if (!opts?.silent) setPageLoading(false);
@@ -83,11 +86,18 @@ export function App() {
 
   async function loadChart(symbol: string) {
     setChartLoading(true);
+    setChartError("");
     try {
       const res = await api.klines(symbol);
       setBars(res.bars);
-    } catch {
+      setChartError(res.error || (res.bars.length ? "" : "시세가 비어 있습니다."));
+      if (res.bars.length) {
+        const last = res.bars[res.bars.length - 1];
+        setMark({ symbol, price: last.close });
+      }
+    } catch (err) {
       setBars([]);
+      setChartError(err instanceof Error ? err.message : "시세를 불러오지 못했습니다.");
     } finally {
       setChartLoading(false);
     }
@@ -209,6 +219,7 @@ export function App() {
         <Dashboard
           status={status}
           params={params}
+          mark={mark}
           loading={pageLoading || Boolean(actionBusy)}
           onOpenSettings={() => setTab("settings")}
           onSoftStop={() =>
@@ -240,7 +251,10 @@ export function App() {
             <div>
               <p className="eyebrow">시세</p>
               <h2>차트</h2>
-              <p className="muted">초록/빨간 가로선은 첫 번째 수동밴드의 상한·하한입니다.</p>
+              <p className="muted">
+                초록/빨간 가로선은 첫 번째 수동밴드의 상한·하한입니다.
+                {mark?.price != null ? ` 지금 ${mark.symbol} ${Number(mark.price).toLocaleString("en-US", { maximumFractionDigits: 2 })}` : ""}
+              </p>
             </div>
           </div>
           <div className="card toolbar">
@@ -265,7 +279,7 @@ export function App() {
               light={theme === "light"}
             />
           ) : chartLoading ? null : (
-            <p className="muted">시세를 불러오지 못했습니다. 종목을 다시 골라 보세요.</p>
+            <p className="field-error">{chartError || "시세를 불러오지 못했습니다. 종목을 다시 골라 보세요."}</p>
           )}
         </section>
       ) : null}

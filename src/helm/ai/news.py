@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-import httpx
+from helm.research.http import get
 
 FEEDS = (
     "https://www.coindesk.com/arc/outboundfeeds/rss/",
@@ -14,7 +14,7 @@ def fetch_headlines(limit: int = 8, timeout: float = 12.0) -> list[dict[str, str
     items: list[dict[str, str]] = []
     for url in FEEDS:
         try:
-            response = httpx.get(url, timeout=timeout, follow_redirects=True)
+            response = get(url, timeout=timeout, follow_redirects=True)
             response.raise_for_status()
             root = ET.fromstring(response.text)
         except Exception:

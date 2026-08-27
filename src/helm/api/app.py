@@ -20,6 +20,7 @@ from helm.api.routes_params import router as params_router
 from helm.api.routes_status import router as status_router
 from helm.auth.crypto import SecretBox
 from helm.db.store import Database
+from helm.research.http import use_system_certs
 from helm.settings import Settings, get_settings
 
 
@@ -39,6 +40,7 @@ class BodyLimitMiddleware(BaseHTTPMiddleware):
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
+    use_system_certs()
     settings.helm_data_dir.mkdir(parents=True, exist_ok=True)
     box = SecretBox(settings.helm_master_key, settings.helm_data_dir / ".master_key")
     db = Database(settings.db_path, box)

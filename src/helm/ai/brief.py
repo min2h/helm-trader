@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import httpx
-
 from helm.ai.news import fetch_headlines
+from helm.research.http import first_json, get_json
 from helm.ai.prompt import ANALYSIS_TASK, CHAT_GUARD
 from helm.config.schema import Params
 
@@ -12,7 +11,14 @@ def fetch_market_snapshot(symbols: list[str] | None = None) -> dict:
     tickers: list[dict] = []
     funding: list[dict] = []
     try:
-        rows = httpx.get("https://fapi.binance.com/fapi/v1/ticker/24hr", timeout=12).json()
+        rows = first_json(
+            [
+                "https://fapi.binance.com/fapi/v1/ticker/24hr",
+                "https://api.binance.com/api/v3/ticker/24hr",
+                "https://data-api.binance.vision/api/v3/ticker/24hr",
+            ],
+            timeout=12,
+        )
         wanted = {s.upper() for s in symbols}
         for row in rows:
             if row.get("symbol") in wanted:
@@ -30,11 +36,11 @@ def fetch_market_snapshot(symbols: list[str] | None = None) -> dict:
         pass
     for symbol in symbols[:6]:
         try:
-            row = httpx.get(
+            row = get_json(
                 "https://fapi.binance.com/fapi/v1/premiumIndex",
                 params={"symbol": symbol.upper()},
                 timeout=8,
-            ).json()
+            )
             funding.append(
                 {
                     "symbol": symbol.upper(),

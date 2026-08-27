@@ -10,7 +10,7 @@ from helm.api.sse import status_payload
 from helm.auth.limits import limiter
 from helm.db.models import User
 from helm.research.catalog import fetch_usdt_catalog
-from helm.research.data import fetch_klines
+from helm.research.data import fetch_klines, fetch_last_price
 from helm.risk.circuit import blocks_new_entry
 
 router = APIRouter()
@@ -28,6 +28,7 @@ def status(request: Request, user: User = Depends(_user)) -> dict:
     payload["min_equity_usdt"] = user.min_equity_usdt
     payload["entry_blocked"] = blocks_new_entry(0, user.min_equity_usdt) and user.min_equity_usdt > 0
     payload["jobs"] = state_of(request).db.list_manual_jobs(user.id)
+    payload["live_orders"] = False
     return payload
 
 
@@ -95,6 +96,14 @@ def delete_job(job_id: int, request: Request, user: User = Depends(_user)) -> di
     return {"ok": True}
 
 
+@router.get("/market/ticker")
+def ticker(symbol: str = "BTCUSDT", market: str = "futures") -> dict:
+    try:
+        return {**fetch_last_price(symbol, market), "error": None}
+    except Exception as exc:
+        return {"symbol": symbol.upper(), "price": None, "error": str(exc)[:240]}
+
+
 @router.get("/market/catalog")
 def market_catalog(market: str = "futures") -> dict:
     return {"market": market, "symbols": fetch_usdt_catalog(market)}
@@ -102,7 +111,16 @@ def market_catalog(market: str = "futures") -> dict:
 
 @router.get("/market/klines")
 def klines(symbol: str = "BTCUSDT", interval: str = "15m", market: str = "futures") -> dict:
-    frame = fetch_klines(symbol, interval, limit=300, market=market)
+    try:
+        frame = fetch_klines(symbol, interval, limit=300, market=market)
+    except Exception as exc:
+        return {
+            "symbol": symbol.upper(),
+            "interval": interval,
+            "bars": [],
+            "source": None,
+            "error": str(exc)[:240],
+        }
     records = []
     for rec in frame.to_dict(orient="records"):
         records.append(
@@ -114,4 +132,10 @@ def klines(symbol: str = "BTCUSDT", interval: str = "15m", market: str = "future
                 "close": float(rec["close"]),
             }
         )
-    return {"symbol": symbol.upper(), "interval": interval, "bars": records}
+    return {
+        "symbol": symbol.upper(),
+        "interval": interval,
+        "bars": records,
+        "source": "binance",
+        "error": None,
+    }

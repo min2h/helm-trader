@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import time
 
-import httpx
+from helm.research.http import first_json
 
 SPOT_INFO = "https://api.binance.com/api/v3/exchangeInfo"
 FUTURES_INFO = "https://fapi.binance.com/fapi/v1/exchangeInfo"
+VISION_INFO = "https://data-api.binance.vision/api/v3/exchangeInfo"
 
 FALLBACK = [
     {"symbol": "BTCUSDT", "base": "BTC", "quote": "USDT", "market": "futures"},
@@ -56,11 +57,9 @@ def fetch_usdt_catalog(market: str = "futures", timeout: float = 12.0) -> list[d
     cached = _CACHE.get(key)
     if cached and now - cached[0] < _TTL_SEC:
         return cached[1]
-    url = FUTURES_INFO if key == "futures" else SPOT_INFO
+    urls = [FUTURES_INFO, SPOT_INFO, VISION_INFO] if key == "futures" else [SPOT_INFO, VISION_INFO]
     try:
-        response = httpx.get(url, timeout=timeout)
-        response.raise_for_status()
-        items = catalog_from_exchange_info(response.json(), key)
+        items = catalog_from_exchange_info(first_json(urls, timeout=timeout), key)
     except Exception:
         items = [dict(row, market=key) for row in FALLBACK]
     if not items:

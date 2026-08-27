@@ -29,6 +29,7 @@ export function Dashboard({
   onHardKill,
   onOpenSettings,
   loading = false,
+  mark = null,
 }: {
   status: Record<string, unknown> | null;
   params: Record<string, unknown> | null;
@@ -37,6 +38,7 @@ export function Dashboard({
   onHardKill: () => void | Promise<void>;
   onOpenSettings: () => void;
   loading?: boolean;
+  mark?: { symbol: string; price: number | null } | null;
 }) {
   if (!status) return <LoadingBar show label="상태를 불러오는 중…" />;
   const state = String(status.run_state);
@@ -57,11 +59,18 @@ export function Dashboard({
       </div>
       <LoadingBar show={loading} label="최신 상태 확인 중…" />
 
+      <p className="state-banner soft_stop">
+        지금 되는 것: 로그인·설정·종목·수동밴드·시세. 오늘 손익·열린 포지션·실주문은 엔진 연결 전이라 0으로 보입니다.
+      </p>
       <p className={`state-banner ${state}`}>
         {labelOf(RUN_STATE, state)} — {STATE_HELP[state] ?? state}
       </p>
 
       <div className="grid-stats">
+        <article className="stat">
+          <dt>시세 {mark?.symbol || "BTCUSDT"}</dt>
+          <dd>{mark?.price == null ? "연결 확인 중" : formatUsdt(mark.price, 2)}</dd>
+        </article>
         <article className="stat">
           <dt>오늘 손익</dt>
           <dd className={Number(status.daily_pnl_pct) < 0 ? "neg" : "pos"}>

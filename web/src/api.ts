@@ -55,10 +55,16 @@ export const api = {
     request<{ symbols: Array<{ symbol: string; base: string; quote: string; market?: string }> }>(
       `/api/market/catalog?market=${market}`,
     ),
-  klines: (symbol: string) =>
-    request<{ bars: Array<{ time: number; open: number; high: number; low: number; close: number }> }>(
-      `/api/market/klines?symbol=${symbol}`,
+  ticker: (symbol: string) =>
+    request<{ symbol: string; price: number | null; error?: string | null }>(
+      `/api/market/ticker?symbol=${symbol}`,
     ),
+  klines: (symbol: string) =>
+    request<{
+      bars: Array<{ time: number; open: number; high: number; low: number; close: number }>;
+      source?: string | null;
+      error?: string | null;
+    }>(`/api/market/klines?symbol=${symbol}`),
   chat: (message: string) =>
     request<{ content: string }>("/api/ai/chat", { method: "POST", body: JSON.stringify({ message }) }),
   messages: () => request<Array<{ role: string; content: string }>>("/api/ai/messages"),

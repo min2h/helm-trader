@@ -19,6 +19,7 @@ dependencies = [
     "cryptography>=44.0",
     "itsdangerous>=2.2",
     "slowapi>=0.1.9",
+    "truststore>=0.10",
 ]
 
 [project.optional-dependencies]

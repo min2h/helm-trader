@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-import httpx
+from helm.research.http import first_json
 
 STABLES = {"USDCUSDT", "FDUSDUSDT", "TUSDUSDT", "DAIUSDT", "USDPUSDT"}
 
 
 def fetch_usdt_tickers(market: str = "futures", timeout: float = 20.0) -> list[dict]:
-    url = (
-        "https://fapi.binance.com/fapi/v1/ticker/24hr"
-        if market == "futures"
-        else "https://api.binance.com/api/v3/ticker/24hr"
-    )
-    response = httpx.get(url, timeout=timeout)
-    response.raise_for_status()
-    return response.json()
+    urls = [
+        "https://fapi.binance.com/fapi/v1/ticker/24hr",
+        "https://api.binance.com/api/v3/ticker/24hr",
+        "https://data-api.binance.vision/api/v3/ticker/24hr",
+    ]
+    if market != "futures":
+        urls = urls[1:]
+    return first_json(urls, timeout=timeout)
 
 
 def screen_symbols(
