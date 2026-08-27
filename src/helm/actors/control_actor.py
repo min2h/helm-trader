@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
-from helm.config.schema import Params, RunState, apply_user_patch
+from helm.config.schema import Params, RunState, apply_user_patch, clamp_params
 from helm.config.store import ParamsStore
 from helm.risk.circuit import evaluate_circuit
 
@@ -125,6 +125,21 @@ class ControlActor:
             self._kill_token = None
             self._kill_expires = None
             return self._apply_run_state("hard_kill", reason, flat=True)
+
+    def mark_ai_run(self, status: str, *, symbols: list[str] | None = None) -> Params:
+        """Autopilot bookkeeping. ai.* is not user- or AI-patchable, so write it here."""
+        with self._lock:
+            data = self._params.model_dump()
+            if symbols is not None:
+                data["symbols"]["active"] = [s.upper() for s in symbols][:20]
+            data["ai"]["last_status"] = status
+            data["ai"]["last_run_at"] = datetime.now(timezone.utc)
+            data["updated_by"] = "user"
+            data["updated_at"] = datetime.now(timezone.utc)
+            data["version"] = self._params.version + 1
+            self._params = self.store.replace(clamp_params(data)).params
+            self._emit("reload_params", "ai_autopilot")
+            return self._params
 
     def approve_symbol(self, symbol: str) -> Params:
         symbol = symbol.strip().upper()

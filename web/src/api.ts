@@ -36,6 +36,47 @@ export type StoredSecrets = Me["secrets"] & {
   binance_secret: string;
 };
 
+export type AutopilotJob = {
+  id: number;
+  symbol: string;
+  schedule: string;
+  lower: number;
+  upper: number;
+  size_usdt: number;
+  enabled: boolean;
+  note: string;
+};
+
+export type AutopilotState = {
+  ai_level: string;
+  engine: "ai" | "rule";
+  has_binance: boolean;
+  has_llm: boolean;
+  allowed: boolean;
+  enabled_count: number;
+  run_state: string;
+  last_status: string;
+  last_run_at: string | null;
+  size_usdt: number;
+  max_picks: number;
+  jobs: AutopilotJob[];
+  history: Array<{ id: number; symbols: string[]; regime: string; at: string }>;
+};
+
+export type AutopilotRun = {
+  started: boolean;
+  engine: "ai" | "rule";
+  reason?: string;
+  regime: string;
+  symbols?: string[];
+  resumed?: boolean;
+  rejected: string[];
+  warnings: string[];
+  candidates: string[];
+  markdown: string;
+  jobs: AutopilotJob[];
+};
+
 export const api = {
   me: () => request<Me>("/api/me"),
   logout: () => request("/api/auth/logout", { method: "POST" }),
@@ -89,6 +130,11 @@ export const api = {
   messages: () => request<Array<{ role: string; content: string }>>("/api/ai/messages"),
   analyze: () => request<{ markdown: string; headlines: Array<{ title: string }> }>("/api/ai/analyze", { method: "POST" }),
   news: () => request<Array<{ title: string; link: string }>>("/api/ai/news"),
+  autopilot: () => request<AutopilotState>("/api/ai/autopilot"),
+  runAutopilot: (again = false) =>
+    request<AutopilotRun>("/api/ai/autopilot/run", { method: "POST", body: JSON.stringify({ again }) }),
+  stopAutopilot: () =>
+    request<{ stopped_jobs: number; run_state: string }>("/api/ai/autopilot/stop", { method: "POST" }),
   adminUsers: () => request<Me[]>("/api/admin/users"),
   approveUser: (id: number) => request(`/api/admin/users/${id}/approve`, { method: "POST" }),
   suspendUser: (id: number) => request(`/api/admin/users/${id}/suspend`, { method: "POST" }),

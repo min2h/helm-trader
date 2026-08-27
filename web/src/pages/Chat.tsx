@@ -15,6 +15,7 @@ export function Chat({
   onAnalyze,
   hasKey,
   compact = false,
+  aiOff = false,
 }: {
   messages: Array<{ role: string; content: string }>;
   headlines: Array<{ title: string }>;
@@ -22,6 +23,7 @@ export function Chat({
   onAnalyze: () => Promise<void>;
   hasKey: boolean;
   compact?: boolean;
+  aiOff?: boolean;
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -37,7 +39,7 @@ export function Chat({
           )}
           <p className="muted">시스템 프롬프트는 모든 질문에 강제됩니다. AI는 주문을 내지 않습니다.</p>
         </div>
-        {hasKey ? (
+        {hasKey && !aiOff ? (
           <button
             type="button"
             className="primary"
@@ -56,7 +58,11 @@ export function Chat({
         ) : null}
       </div>
       <LoadingBar show={busy} label={busy ? "AI가 답하는 중…" : undefined} />
-      {!hasKey ? (
+      {aiOff ? (
+        <p className="state-banner soft_stop">
+          AI 개입이 꺼져 있어 질문·분석 어느 쪽도 토큰을 쓰지 않습니다. 설정에서 AI 개입을 켜면 열립니다.
+        </p>
+      ) : !hasKey ? (
         <p className="state-banner soft_stop">계정 옆 설정에서 개인 LLM 키를 넣어야 분석이 됩니다. 왼쪽 수동투자는 키 없이 됩니다.</p>
       ) : (
         <div className={compact ? "stack-fields" : "chat-layout"}>

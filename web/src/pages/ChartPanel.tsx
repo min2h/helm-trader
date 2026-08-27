@@ -18,8 +18,9 @@ export function ChartPanel({
 
   useEffect(() => {
     if (!ref.current) return;
+    const fitHeight = (width: number) => Math.max(240, Math.min(420, Math.round(width * 0.62)));
     const chart = createChart(ref.current, {
-      height: 420,
+      height: fitHeight(ref.current.clientWidth),
       localization: {
         priceFormatter: (price: number) =>
           `$${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
@@ -46,7 +47,11 @@ export function ChartPanel({
     if (lower) series.createPriceLine({ price: lower, color: "#ef6b5c", lineStyle: 2, title: "하한" });
     if (upper) series.createPriceLine({ price: upper, color: "#3dcb8a", lineStyle: 2, title: "상한" });
     chart.timeScale().fitContent();
-    const observer = new ResizeObserver(() => chart.applyOptions({ width: ref.current?.clientWidth }));
+    const observer = new ResizeObserver(() => {
+      const width = ref.current?.clientWidth;
+      if (!width) return;
+      chart.applyOptions({ width, height: fitHeight(width) });
+    });
     observer.observe(ref.current);
     return () => {
       observer.disconnect();

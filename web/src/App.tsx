@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { api, type Me } from "./api";
+import { api, type AutopilotState, type Me } from "./api";
 import { formatMoney } from "./format";
 import { pickDefaultSymbol } from "./pickSymbol";
 import { LoadingBar } from "./LoadingBar";
 import { SymbolSearch, type CatalogItem } from "./SymbolSearch";
 import { Admin } from "./pages/Admin";
+import { Autopilot } from "./pages/Autopilot";
 import { ChartPanel } from "./pages/ChartPanel";
 import { Chat } from "./pages/Chat";
 import { Dashboard } from "./pages/Dashboard";
@@ -42,6 +43,8 @@ export function App() {
   const [chartLoading, setChartLoading] = useState(false);
   const [chartError, setChartError] = useState("");
   const [mark, setMark] = useState<{ symbol: string; price: number | null } | null>(null);
+  const [autopilot, setAutopilot] = useState<AutopilotState | null>(null);
+  const aiLevel = String(params?.ai_level ?? "");
 
   async function loadMe() {
     try {
@@ -153,13 +156,19 @@ export function App() {
       if (chartSymbol) void loadChart(chartSymbol);
     }
     if (tab === "invest" && me?.status === "approved") {
-      void api.messages().then(setMessages).catch(() => undefined);
-      void api.news().then(setHeadlines).catch(() => setHeadlines([]));
+      void api.autopilot().then(setAutopilot).catch(() => setAutopilot(null));
+      if (aiLevel !== "off") {
+        void api.messages().then(setMessages).catch(() => undefined);
+        void api.news().then(setHeadlines).catch(() => setHeadlines([]));
+      } else {
+        setMessages([]);
+        setHeadlines([]);
+      }
     }
     if (tab === "admin" && me?.role === "admin") {
       void api.adminUsers().then(setUsers).catch(() => undefined);
     }
-  }, [tab, me?.id, jobs, chartSymbol]);
+  }, [tab, me?.id, jobs, chartSymbol, aiLevel]);
 
   const theme = me?.theme === "light" ? "light" : "dark";
 
@@ -318,7 +327,9 @@ export function App() {
             <div>
               <p className="eyebrow">실행</p>
               <h2>투자</h2>
-              <p className="muted">왼쪽은 수동 밴드, 오른쪽은 AI 분석입니다. AI는 주문을 내지 않습니다.</p>
+              <p className="muted">
+                왼쪽은 수동 밴드, 오른쪽은 AI 자동매매와 분석입니다. AI를 끄면 토큰을 전혀 쓰지 않습니다.
+              </p>
             </div>
           </div>
           <div className="invest-layout">
@@ -340,22 +351,38 @@ export function App() {
                 await refresh({ silent: true });
               }}
             />
-            <Chat
-              compact
-              messages={messages}
-              headlines={headlines}
-              hasKey={me.secrets.llm}
-              onSend={async (text) => {
-                const reply = await api.chat(text);
-                setMessages((prev) => [...prev, { role: "user", content: text }, { role: "assistant", content: reply.content }]);
-              }}
-              onAnalyze={async () => {
-                const result = await api.analyze();
-                setReport(result.markdown);
-                setHeadlines(result.headlines);
-                setTab("reports");
-              }}
-            />
+            <div className="stack-fields">
+              <Autopilot
+                state={autopilot}
+                usdKrw={usdKrw}
+                onSettings={() => setTab("settings")}
+                onChanged={async () => {
+                  await api
+                    .autopilot()
+                    .then(setAutopilot)
+                    .catch(() => undefined);
+                  await refresh({ silent: true });
+                }}
+                onReport={setReport}
+              />
+              <Chat
+                compact
+                aiOff={aiLevel === "off"}
+                messages={messages}
+                headlines={headlines}
+                hasKey={me.secrets.llm}
+                onSend={async (text) => {
+                  const reply = await api.chat(text);
+                  setMessages((prev) => [...prev, { role: "user", content: text }, { role: "assistant", content: reply.content }]);
+                }}
+                onAnalyze={async () => {
+                  const result = await api.analyze();
+                  setReport(result.markdown);
+                  setHeadlines(result.headlines);
+                  setTab("reports");
+                }}
+              />
+            </div>
           </div>
         </section>
       ) : null}

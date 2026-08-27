@@ -129,7 +129,10 @@ export function ManualTrade({
           <article className="job-card" key={String(job.id)}>
             <header>
               <strong>{String(job.symbol)}</strong>
-              <span className={`badge ${job.enabled ? "good" : "warn"}`}>{job.enabled ? "켜짐" : "꺼짐"}</span>
+              <span className="actions">
+                {job.source === "ai" ? <span className="badge">AI</span> : null}
+                <span className={`badge ${job.enabled ? "good" : "warn"}`}>{job.enabled ? "켜짐" : "꺼짐"}</span>
+              </span>
             </header>
             <div className="job-meta">
               <div>

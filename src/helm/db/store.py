@@ -56,6 +56,8 @@ CREATE TABLE IF NOT EXISTS manual_jobs (
     schedule TEXT NOT NULL DEFAULT 'every_15m',
     size_usdt REAL NOT NULL,
     enabled INTEGER NOT NULL DEFAULT 1,
+    source TEXT NOT NULL DEFAULT 'manual',
+    note TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     FOREIGN KEY(user_id) REFERENCES users(id)
 );
@@ -97,7 +99,25 @@ CREATE TABLE IF NOT EXISTS market_symbols (
     PRIMARY KEY (symbol, market)
 );
 CREATE INDEX IF NOT EXISTS idx_market_symbols_quote ON market_symbols(quote);
+CREATE TABLE IF NOT EXISTS ai_runs (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'autopilot',
+    regime TEXT NOT NULL DEFAULT '',
+    symbols TEXT NOT NULL DEFAULT '',
+    detail TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+);
+CREATE INDEX IF NOT EXISTS idx_ai_runs_user ON ai_runs(user_id, id);
 """
+
+MIGRATIONS = {
+    "manual_jobs": {
+        "source": "ALTER TABLE manual_jobs ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'",
+        "note": "ALTER TABLE manual_jobs ADD COLUMN note TEXT NOT NULL DEFAULT ''",
+    },
+}
 
 
 def _secret_hint(value: str) -> str:
@@ -146,6 +166,16 @@ class Database:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._conn.executescript(SCHEMA)
+        self._migrate()
+        self._conn.commit()
+
+    def _migrate(self) -> None:
+        """Older DB files miss columns added later; SQLite needs one ALTER per column."""
+        for table, columns in MIGRATIONS.items():
+            have = {row["name"] for row in self._conn.execute(f"PRAGMA table_info({table})")}
+            for column, statement in columns.items():
+                if column not in have:
+                    self._conn.execute(statement)
         self._conn.commit()
 
     def close(self) -> None:
@@ -337,8 +367,9 @@ class Database:
 
     def add_manual_job(self, user_id: int, payload: dict) -> dict:
         cur = self._conn.execute(
-            """INSERT INTO manual_jobs (user_id, symbol, side, lower, upper, schedule, size_usdt, enabled, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO manual_jobs
+               (user_id, symbol, side, lower, upper, schedule, size_usdt, enabled, source, note, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 user_id,
                 str(payload["symbol"]).upper(),
@@ -348,6 +379,8 @@ class Database:
                 str(payload.get("schedule", "every_15m")),
                 float(payload.get("size_usdt", 100)),
                 1 if payload.get("enabled", True) else 0,
+                "ai" if str(payload.get("source", "manual")) == "ai" else "manual",
+                str(payload.get("note", "")),
                 now_iso(),
             ),
         )
@@ -364,6 +397,28 @@ class Database:
         ).fetchall()
         return [dict(row) for row in rows]
 
+    def list_manual_jobs_by_source(self, user_id: int, source: str) -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM manual_jobs WHERE user_id=? AND source=? ORDER BY id DESC",
+            (user_id, source),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def disable_manual_jobs(self, user_id: int, source: str) -> int:
+        cur = self._conn.execute(
+            "UPDATE manual_jobs SET enabled=0 WHERE user_id=? AND source=? AND enabled=1",
+            (user_id, source),
+        )
+        self._conn.commit()
+        return int(cur.rowcount or 0)
+
+    def delete_manual_jobs(self, user_id: int, source: str) -> int:
+        cur = self._conn.execute(
+            "DELETE FROM manual_jobs WHERE user_id=? AND source=?", (user_id, source)
+        )
+        self._conn.commit()
+        return int(cur.rowcount or 0)
+
     def set_manual_enabled(self, user_id: int, job_id: int, enabled: bool) -> dict:
         self._conn.execute(
             "UPDATE manual_jobs SET enabled=? WHERE id=? AND user_id=?",
@@ -375,6 +430,43 @@ class Database:
     def delete_manual_job(self, user_id: int, job_id: int) -> None:
         self._conn.execute("DELETE FROM manual_jobs WHERE id=? AND user_id=?", (job_id, user_id))
         self._conn.commit()
+
+    def add_ai_run(
+        self,
+        user_id: int,
+        *,
+        symbols: list[str],
+        regime: str = "",
+        detail: str = "",
+        kind: str = "autopilot",
+    ) -> dict:
+        cur = self._conn.execute(
+            """INSERT INTO ai_runs (user_id, kind, regime, symbols, detail, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (user_id, kind, regime, ",".join(s.upper() for s in symbols), detail, now_iso()),
+        )
+        self._conn.commit()
+        return {"id": int(cur.lastrowid), "symbols": symbols, "regime": regime}
+
+    def list_ai_runs(self, user_id: int, limit: int = 5, kind: str = "autopilot") -> list[dict]:
+        rows = self._conn.execute(
+            "SELECT * FROM ai_runs WHERE user_id=? AND kind=? ORDER BY id DESC LIMIT ?",
+            (user_id, kind, limit),
+        ).fetchall()
+        out: list[dict] = []
+        for row in rows:
+            item = dict(row)
+            item["symbols"] = [s for s in str(row["symbols"]).split(",") if s]
+            out.append(item)
+        return out
+
+    def recent_ai_symbols(self, user_id: int, runs: int = 3, kind: str = "autopilot") -> list[str]:
+        seen: list[str] = []
+        for run in self.list_ai_runs(user_id, limit=runs, kind=kind):
+            for symbol in run["symbols"]:
+                if symbol not in seen:
+                    seen.append(symbol)
+        return seen
 
     def add_report(self, user_id: int, kind: str, markdown: str) -> dict:
         cur = self._conn.execute(

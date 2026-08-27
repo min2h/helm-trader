@@ -254,6 +254,17 @@ input,
 select,
 textarea {
   width: 100%;
+  font: inherit;
+  font-size: 15px;
+}
+
+button.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline;
+  min-height: 0;
 }
 
 textarea {
@@ -639,15 +650,121 @@ select.invalid {
   .invest-layout {
     grid-template-columns: 1fr;
   }
+
+  .shell {
+    padding: 16px 16px 56px;
+  }
 }
 
+/* Phone. The app is used one-handed, so rows become columns and taps get bigger. */
 @media (max-width: 640px) {
+  .shell {
+    padding: 12px 12px calc(40px + env(safe-area-inset-bottom));
+    background: var(--bg);
+  }
+
   .grid-2,
-  .chat-layout {
+  .grid-3,
+  .chat-layout,
+  .form-grid,
+  .choice-grid {
     grid-template-columns: 1fr;
+  }
+
+  .grid-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
   }
 
   .who {
     text-align: left;
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    margin: 8px -12px 8px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .page-head {
+    margin: 14px 0 12px;
+  }
+
+  h1 {
+    font-size: 18px;
+  }
+
+  .actions > button,
+  .actions > .btn,
+  .presets button {
+    flex: 1 1 140px;
+  }
+
+  button:not(.link),
+  .btn {
+    min-height: 42px;
+  }
+
+  .kv {
+    grid-template-columns: 76px 1fr;
+    font-size: 13px;
+  }
+
+  .state-banner {
+    padding: 12px 13px;
+    margin-bottom: 12px;
+    font-size: 14px;
+  }
+
+  .report,
+  .chat pre {
+    padding: 12px;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+
+  .card,
+  .stat,
+  .job-card,
+  .radio-group {
+    padding: 11px 12px;
+  }
+
+  .secret-row button {
+    min-width: 60px;
+    padding: 10px 8px;
+  }
+}
+
+/* Touch screens: 16px stops iOS from zooming on focus, 44px is the tap target. */
+@media (hover: none) and (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  button,
+  .btn {
+    min-height: 44px;
+  }
+
+  button.link {
+    min-height: 0;
   }
 }
