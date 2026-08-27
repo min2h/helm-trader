@@ -9,6 +9,7 @@ from helm.api.deps import actor_for, approved_user, current_user, state_of
 from helm.api.sse import status_payload
 from helm.auth.limits import limiter
 from helm.db.models import User
+from helm.research.catalog import fetch_usdt_catalog
 from helm.research.data import fetch_klines
 from helm.risk.circuit import blocks_new_entry
 
@@ -92,6 +93,11 @@ def toggle_job(job_id: int, body: dict, request: Request, user: User = Depends(_
 def delete_job(job_id: int, request: Request, user: User = Depends(_user)) -> dict:
     state_of(request).db.delete_manual_job(user.id, job_id)
     return {"ok": True}
+
+
+@router.get("/market/catalog")
+def market_catalog(market: str = "futures") -> dict:
+    return {"market": market, "symbols": fetch_usdt_catalog(market)}
 
 
 @router.get("/market/klines")

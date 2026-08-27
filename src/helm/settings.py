@@ -13,7 +13,7 @@ class Settings(BaseSettings):
 
     helm_token: str = Field(default="change-me-generate-a-long-random-string")
     helm_data_dir: Path = Field(default=Path("data"))
-    helm_host: str = "127.0.0.1"
+    helm_host: str = "0.0.0.0"
     helm_port: int = 8080
     helm_public_url: str = "http://127.0.0.1:8080"
     helm_admin_emails: str = ""

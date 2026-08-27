@@ -10,6 +10,15 @@ from helm.research.donchian import backtest_donchian
 from helm.settings import get_settings
 
 
+def _public_ip() -> str | None:
+    try:
+        import httpx
+
+        return httpx.get("https://api.ipify.org", timeout=5.0).text.strip() or None
+    except Exception:
+        return None
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="helm")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -37,6 +46,11 @@ def main(argv: list[str] | None = None) -> int:
         import uvicorn
         from helm.api.app import create_app
 
+        print(f"helm api bind {settings.helm_host}:{settings.helm_port}")
+        print(f"local  http://127.0.0.1:{settings.helm_port}")
+        public = _public_ip()
+        if public:
+            print(f"public http://{public}:{settings.helm_port}  (공유기에서 이 포트 inbound 필요)")
         uvicorn.run(create_app(settings), host=settings.helm_host, port=settings.helm_port)
         return 0
 

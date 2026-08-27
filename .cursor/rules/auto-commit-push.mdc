@@ -1,0 +1,15 @@
+---
+description: Commit and push after helm-trader source changes
+alwaysApply: true
+---
+
+# Auto commit / push
+
+When you change helm-trader source in this repo:
+
+1. Update `README.md` if user-facing behavior changed.
+2. `git add` the changed source (not secrets).
+3. Create a commit, then `git push` to the tracked remote.
+
+Never commit `.env`, credentials, `data/`, `.venv`, `node_modules`, or `web/dist`.
+Never force-push. Never change git config. Never skip hooks.

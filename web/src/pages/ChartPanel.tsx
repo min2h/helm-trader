@@ -7,35 +7,40 @@ export function ChartPanel({
   bars,
   lower,
   upper,
+  light = false,
 }: {
   bars: Bar[];
   lower?: number;
   upper?: number;
+  light?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!ref.current) return;
     const chart = createChart(ref.current, {
-      height: 360,
+      height: 420,
       layout: {
-        background: { type: ColorType.Solid, color: "#1d1913" },
-        textColor: "#9a8b73",
+        background: { type: ColorType.Solid, color: light ? "#ffffff" : "#151b23" },
+        textColor: light ? "#667588" : "#8b97a6",
       },
-      grid: { vertLines: { color: "#2a241c" }, horzLines: { color: "#2a241c" } },
-      rightPriceScale: { borderColor: "#3a3226" },
-      timeScale: { borderColor: "#3a3226" },
+      grid: {
+        vertLines: { color: light ? "#e6edf5" : "#2a3544" },
+        horzLines: { color: light ? "#e6edf5" : "#2a3544" },
+      },
+      rightPriceScale: { borderColor: light ? "#d5dee8" : "#2a3544" },
+      timeScale: { borderColor: light ? "#d5dee8" : "#2a3544" },
     });
     const series = chart.addCandlestickSeries({
-      upColor: "#c4a574",
-      downColor: "#c45c3e",
-      wickUpColor: "#c4a574",
-      wickDownColor: "#c45c3e",
+      upColor: "#3dcb8a",
+      downColor: "#ef6b5c",
+      wickUpColor: "#3dcb8a",
+      wickDownColor: "#ef6b5c",
       borderVisible: false,
     });
     series.setData(bars.map((bar) => ({ ...bar, time: bar.time as UTCTimestamp })));
-    if (lower) series.createPriceLine({ price: lower, color: "#c45c3e", lineStyle: 2, title: "하한" });
-    if (upper) series.createPriceLine({ price: upper, color: "#7d9a6a", lineStyle: 2, title: "상한" });
+    if (lower) series.createPriceLine({ price: lower, color: "#ef6b5c", lineStyle: 2, title: "하한" });
+    if (upper) series.createPriceLine({ price: upper, color: "#3dcb8a", lineStyle: 2, title: "상한" });
     chart.timeScale().fitContent();
     const observer = new ResizeObserver(() => chart.applyOptions({ width: ref.current?.clientWidth }));
     observer.observe(ref.current);
@@ -43,7 +48,7 @@ export function ChartPanel({
       observer.disconnect();
       chart.remove();
     };
-  }, [bars, lower, upper]);
+  }, [bars, lower, upper, light]);
 
   return <div className="chart" ref={ref} />;
 }

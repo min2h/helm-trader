@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type Me } from "./api";
+import { SymbolSearch, type CatalogItem } from "./SymbolSearch";
 import { Admin } from "./pages/Admin";
 import { ChartPanel } from "./pages/ChartPanel";
 import { Chat } from "./pages/Chat";
@@ -11,7 +12,7 @@ import { Reports } from "./pages/Reports";
 import { Settings } from "./pages/Settings";
 import { Symbols } from "./pages/Symbols";
 
-type Tab = "dash" | "chart" | "manual" | "settings" | "symbols" | "reports" | "ai" | "admin";
+type Tab = "dash" | "chart" | "invest" | "settings" | "symbols" | "reports" | "admin";
 
 export function App() {
   const [me, setMe] = useState<Me | null>(null);
@@ -26,9 +27,11 @@ export function App() {
   const [report, setReport] = useState("");
   const [jobs, setJobs] = useState<Array<Record<string, unknown>>>([]);
   const [bars, setBars] = useState<Array<{ time: number; open: number; high: number; low: number; close: number }>>([]);
+  const [chartSymbol, setChartSymbol] = useState("BTCUSDT");
   const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
   const [headlines, setHeadlines] = useState<Array<{ title: string }>>([]);
   const [users, setUsers] = useState<Me[]>([]);
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [error, setError] = useState("");
 
   async function loadMe() {
@@ -42,23 +45,22 @@ export function App() {
 
   async function refresh() {
     if (!me || me.status !== "approved") return;
-    try {
-      const [p, s, sy, r, j] = await Promise.all([
-        api.params(),
-        api.status(),
-        api.symbols(),
-        api.report(),
-        api.jobs(),
-      ]);
-      setParams(p);
-      setStatus(s);
-      setSymbols(sy);
-      setReport(r.markdown);
-      setJobs(j);
-      setError("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "load failed");
-    }
+    const errors: string[] = [];
+    const take = async <T,>(job: Promise<T>, apply: (value: T) => void) => {
+      try {
+        apply(await job);
+      } catch (err) {
+        errors.push(err instanceof Error ? err.message : "load failed");
+      }
+    };
+    await Promise.all([
+      take(api.params(), setParams),
+      take(api.status(), setStatus),
+      take(api.symbols(), setSymbols),
+      take(api.report(), (r) => setReport(r.markdown)),
+      take(api.jobs(), setJobs),
+    ]);
+    setError(errors[0] ?? "");
   }
 
   useEffect(() => {
@@ -72,18 +74,24 @@ export function App() {
   }, [me?.id, me?.status]);
 
   useEffect(() => {
+    if (!me || me.status !== "approved") return;
+    const market = String(params?.market_mode || "futures") === "spot" ? "spot" : "futures";
+    void api.catalog(market).then((res) => setCatalog(res.symbols)).catch(() => setCatalog([]));
+  }, [me?.id, me?.status, params?.market_mode]);
+
+  useEffect(() => {
     if (tab === "chart") {
-      const symbol = String(jobs[0]?.symbol || "BTCUSDT");
+      const symbol = chartSymbol || String(jobs[0]?.symbol || "BTCUSDT");
       void api.klines(symbol).then((res) => setBars(res.bars)).catch(() => setBars([]));
     }
-    if (tab === "ai" && me?.status === "approved") {
+    if (tab === "invest" && me?.status === "approved") {
       void api.messages().then(setMessages).catch(() => undefined);
       void api.news().then(setHeadlines).catch(() => setHeadlines([]));
     }
     if (tab === "admin" && me?.role === "admin") {
       void api.adminUsers().then(setUsers).catch(() => undefined);
     }
-  }, [tab, me?.id, jobs]);
+  }, [tab, me?.id, jobs, chartSymbol]);
 
   const theme = me?.theme === "light" ? "light" : "dark";
 
@@ -117,32 +125,46 @@ export function App() {
   const tabs: Array<[Tab, string, boolean]> = [
     ["dash", "현황", true],
     ["chart", "차트", true],
-    ["manual", "수동투자", true],
-    ["settings", "설정", true],
+    ["invest", "투자", true],
     ["symbols", "종목", true],
     ["reports", "보고서", true],
-    ["ai", "AI", true],
     ["admin", "관리자", me.role === "admin"],
   ];
 
+  async function replaceActive(next: string[]) {
+    await api.putParams({ "symbols.active": next });
+    await refresh();
+  }
+
   return (
     <div className={`shell ${theme}`}>
-      <header>
+      <header className="app-top">
         <div>
-          <p className="eyebrow">helm-trader 0.2 · {me.status}</p>
-          <h1>{me.nickname}</h1>
+          <p className="brand-mark">helm-trader 0.2</p>
+          <div className="identity">
+            <h1>{me.nickname}</h1>
+            <button type="button" className={tab === "settings" ? "on" : ""} onClick={() => setTab("settings")}>
+              설정
+            </button>
+          </div>
+          <p className="muted">{me.email}</p>
         </div>
-        <button
-          type="button"
-          onClick={async () => {
-            await api.logout();
-            setMe(null);
-          }}
-        >
-          로그아웃
-        </button>
+        <div className="who">
+          <div className="actions">
+            <span className={`badge ${me.status === "approved" ? "good" : "warn"}`}>{me.status}</span>
+            <button
+              type="button"
+              onClick={async () => {
+                await api.logout();
+                setMe(null);
+              }}
+            >
+              로그아웃
+            </button>
+          </div>
+        </div>
       </header>
-      <nav>
+      <nav className="nav">
         {tabs
           .filter(([, , show]) => show)
           .map(([id, label]) => (
@@ -155,6 +177,8 @@ export function App() {
       {tab === "dash" ? (
         <Dashboard
           status={status}
+          params={params}
+          onOpenSettings={() => setTab("settings")}
           onSoftStop={async () => {
             await api.softStop();
             await refresh();
@@ -174,46 +198,85 @@ export function App() {
       ) : null}
       {tab === "chart" ? (
         <section>
-          <h2>차트</h2>
-          <p className="muted">노란/빨간 가로선은 첫 번째 수동밴드의 상한·하한입니다.</p>
-          <label>
-            심볼
-            <input
-              defaultValue={String(jobs[0]?.symbol || "BTCUSDT")}
-              onBlur={(event) => {
-                void api.klines(event.target.value).then((res) => setBars(res.bars)).catch(() => setBars([]));
-              }}
-            />
-          </label>
+          <div className="page-head">
+            <div>
+              <p className="eyebrow">시세</p>
+              <h2>차트</h2>
+              <p className="muted">초록/빨간 가로선은 첫 번째 수동밴드의 상한·하한입니다.</p>
+            </div>
+          </div>
+          <div className="card toolbar">
+            <label>
+              종목
+              <SymbolSearch
+                value={chartSymbol}
+                catalog={catalog}
+                onChange={(symbol) => {
+                  setChartSymbol(symbol);
+                  void api.klines(symbol).then((res) => setBars(res.bars)).catch(() => setBars([]));
+                }}
+              />
+            </label>
+          </div>
           {bars.length ? (
             <ChartPanel
               bars={bars}
               lower={Number(jobs[0]?.lower || 0)}
               upper={Number(jobs[0]?.upper || 0)}
+              light={theme === "light"}
             />
           ) : (
-            <p className="muted">시세를 불러오지 못했습니다. 심볼을 확인하고 입력란에서 포커스를 벗어나 보세요.</p>
+            <p className="muted">시세를 불러오지 못했습니다. 종목을 다시 골라 보세요.</p>
           )}
         </section>
       ) : null}
-      {tab === "manual" ? (
-        <ManualTrade
-          jobs={jobs}
-          onCreate={async (body) => {
-            await api.createJob(body);
-            await refresh();
-          }}
-          onToggle={async (id, enabled) => {
-            await api.toggleJob(id, enabled);
-            await refresh();
-          }}
-          onDelete={async (id) => {
-            await api.deleteJob(id);
-            await refresh();
-          }}
-        />
+      {tab === "invest" ? (
+        <section>
+          <div className="page-head">
+            <div>
+              <p className="eyebrow">실행</p>
+              <h2>투자</h2>
+              <p className="muted">왼쪽은 수동 밴드, 오른쪽은 AI 분석입니다. AI는 주문을 내지 않습니다.</p>
+            </div>
+          </div>
+          <div className="invest-layout">
+            <ManualTrade
+              compact
+              jobs={jobs}
+              catalog={catalog}
+              onCreate={async (body) => {
+                await api.createJob(body);
+                await refresh();
+              }}
+              onToggle={async (id, enabled) => {
+                await api.toggleJob(id, enabled);
+                await refresh();
+              }}
+              onDelete={async (id) => {
+                await api.deleteJob(id);
+                await refresh();
+              }}
+            />
+            <Chat
+              compact
+              messages={messages}
+              headlines={headlines}
+              hasKey={me.secrets.llm}
+              onSend={async (text) => {
+                const reply = await api.chat(text);
+                setMessages((prev) => [...prev, { role: "user", content: text }, { role: "assistant", content: reply.content }]);
+              }}
+              onAnalyze={async () => {
+                const result = await api.analyze();
+                setReport(result.markdown);
+                setHeadlines(result.headlines);
+                setTab("reports");
+              }}
+            />
+          </div>
+        </section>
       ) : null}
-      {tab === "settings" && params ? (
+      {tab === "settings" ? (
         <Settings
           me={me}
           params={params}
@@ -233,30 +296,22 @@ export function App() {
       {tab === "symbols" ? (
         <Symbols
           symbols={symbols}
+          catalog={catalog}
           onApprove={async (symbol) => {
             await api.approve(symbol);
             await refresh();
           }}
+          onAddActive={async (symbol) => {
+            const current = symbols?.active ?? [];
+            if (current.includes(symbol)) return;
+            await replaceActive([...current, symbol]);
+          }}
+          onRemoveActive={async (symbol) => {
+            await replaceActive((symbols?.active ?? []).filter((item) => item !== symbol));
+          }}
         />
       ) : null}
       {tab === "reports" ? <Reports markdown={report} /> : null}
-      {tab === "ai" ? (
-        <Chat
-          messages={messages}
-          headlines={headlines}
-          hasKey={me.secrets.llm}
-          onSend={async (text) => {
-            const reply = await api.chat(text);
-            setMessages((prev) => [...prev, { role: "user", content: text }, { role: "assistant", content: reply.content }]);
-          }}
-          onAnalyze={async () => {
-            const result = await api.analyze();
-            setReport(result.markdown);
-            setHeadlines(result.headlines);
-            setTab("reports");
-          }}
-        />
-      ) : null}
       {tab === "admin" ? (
         <Admin
           users={users}

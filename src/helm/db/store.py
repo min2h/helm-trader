@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 from datetime import datetime, timedelta, timezone
+from functools import wraps
 from pathlib import Path
 
 from helm.auth.crypto import SecretBox
@@ -88,6 +90,15 @@ CREATE TABLE IF NOT EXISTS login_attempts (
 """
 
 
+def _locked(fn):
+    @wraps(fn)
+    def inner(self, *args, **kwargs):
+        with self._lock:
+            return fn(self, *args, **kwargs)
+
+    return inner
+
+
 def _row_user(row: sqlite3.Row) -> User:
     return User(
         id=row["id"],
@@ -112,6 +123,7 @@ class Database:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.path = path
         self.box = box
+        self._lock = threading.RLock()
         self._conn = sqlite3.connect(path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
@@ -412,3 +424,9 @@ class Database:
     def clear_failures(self, ip: str) -> None:
         self._conn.execute("DELETE FROM login_attempts WHERE ip=?", (ip,))
         self._conn.commit()
+
+
+for _name, _fn in list(vars(Database).items()):
+    if _name == "__init__" or _name.startswith("_") or not callable(_fn):
+        continue
+    setattr(Database, _name, _locked(_fn))

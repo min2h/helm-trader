@@ -43,9 +43,9 @@
 | --- | --- |
 | Google/Kakao/Naver OAuth + 관리자 승인 | Nautilus 실주문 |
 | 유저별 params / 수동밴드 / 암호화된 개인 키 | 거래소 잔고 실시간 반영 |
-| 차트, 보고서, 다크/라이트, 닉네임, SMTP | `close_position` 실부착 |
+| 그리드형 현황/설정 대시보드, 차트, 보고서, 다크/라이트 | `close_position` 실부착 |
 | 개인 LLM 키 채팅 + 고정 시스템 프롬프트 + 뉴스 헤드라인 | 유료 뉴스 API |
-| slowapi 레이트 리밋, 로그인 잠금, body 상한 | 공인망 DDoS (Cloudflare 필요, 이 프로젝트는 Tailscale 전용) |
+| 검색형 종목 선택, 수동/AI 나란히, 공인 IP 바인드 | 공인망 DDoS 완화(Cloudflare). 포트포워드 시 로그인·레이트 리밋만 있음 |
 
 ### 17.2 사용자가 발급해야 하는 키
 
@@ -55,25 +55,25 @@
 | --- | --- | --- |
 | `HELM_ADMIN_EMAILS` | 첫 관리자 로그인 | 본인 OAuth 이메일 |
 | `HELM_MASTER_KEY` | 개인 키 암호화 | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
-| `HELM_PUBLIC_URL` | OAuth 콜백 | Tailscale HTTPS 권장. 로컬은 `http://127.0.0.1:8080` |
+| `HELM_PUBLIC_URL` | OAuth 콜백 | 공인 IP면 `http://<공인IP>:8080`. HTTPS가 필요하면 Caddy |
 | `GOOGLE_CLIENT_ID/SECRET` | 구글 로그인 | Google Cloud OAuth. redirect: `{PUBLIC_URL}/api/auth/google/callback` |
 | `KAKAO_CLIENT_ID/SECRET` | 카카오 로그인 | Kakao Developers |
 | `NAVER_CLIENT_ID/SECRET` | 네이버 로그인 | Naver Developers |
 | `SMTP_*` | 메일 알림 | 지메일 앱 비밀번호 등 |
 | 개인 LLM 키 | AI 채팅/자동분석 | 각 사용자가 설정 화면에 입력 |
 | 개인 Binance 키 | 이후 실주문 | 출금 OFF, IP 화이트리스트 |
-| Tailscale | 폰 접속 | 포트포워드 금지 |
+| 공유기 포트포워드 | 폰/외부 PC 접속 | `HELM_HOST=0.0.0.0` 후 WAN→이 PC 포트. 방화벽 inbound 허용 |
 
 로컬에서 OAuth 앱이 없으면 `HELM_AUTH_DEV=true` 후 로그인 화면의 "로컬 개발 로그인"을 쓴다.
 
 ### 17.3 사용자가 직접 해야 하는 일
 
 1. Binance 현물/선물 이용 가능 여부 확인
-2. OAuth 앱 3종 생성, redirect URI 등록. HTTP 커스텀 호스트는 거절될 수 있어 **Tailscale Serve/Caddy HTTPS**를 쓴다
+2. OAuth 앱 3종 생성, redirect URI 등록. 공인 IP HTTP는 일부 콘솔이 거절할 수 있어 그때만 Caddy HTTPS를 쓴다
 3. `.env`에 관리자 이메일과 MASTER_KEY, OAuth, SMTP
 4. 가족/지인이 로그인 → 관리자 탭에서 승인
 5. 각자 설정에서 닉네임, 알림, MIN 잔고, (선택) LLM 키
-6. AI 키 없이 쓰려면 수동투자 탭에서 종목/상한/하한/스케줄만 저장
+6. AI 키 없이 쓰려면 투자 탭 왼쪽에서 종목 검색 후 상한/하한/스케줄만 저장
 
 ```text
 cd helm-trader
@@ -91,7 +91,7 @@ Mac mini 운영으로 옮길 때
 5. `ops/macos/disable_sleep.sh` 실행, 자동 업데이트 재부팅 끄기.
 6. `ops/launchd/*.plist`의 `/Users/SHARED/helm-trader` 경로를 실제 경로로 바꾼 뒤 `launchctl load`.
 7. UPS 연결. API 키 IP 화이트리스트에 Mac mini 공인 IP 등록.
-8. 휴대폰과 Mac mini에 Tailscale 설치. 대시보드를 공인망에 열지 않는다.
+8. 대시보드는 `HELM_HOST=0.0.0.0`으로 이 PC 공인 IP에 연다. 공유기에서 해당 포트를 이 PC로 포워드하고 Windows 방화벽 inbound를 연다.
 9. 실계좌 키는 DEMO 14일 + 소액 실계좌 4주를 끝낸 뒤에만 넣는다.
 
 ### 17.4 에이전트(나)가 대신 할 수 없는 것
@@ -99,7 +99,7 @@ Mac mini 운영으로 옮길 때
 - Binance / Telegram / LLM 콘솔 로그인과 키 발급
 - 출금 권한 제거, IP 화이트리스트 등록
 - 본인 계정 선물 이용 가능 여부 확인
-- 실자금 입금, 세금 신고, Tailscale 가입
+- 실자금 입금, 세금 신고, 공유기 포트포워드
 - 정전 대비 UPS 구매와 물리 배치
 
 키를 채팅에 붙여 넣지 말 것. `.env`와 대시보드 설정에만 넣는다.
@@ -117,7 +117,8 @@ Mac mini 운영으로 옮길 때
 | `HELM_AUTH_DEV` | 로컬 개발 | — | `true`면 로그인 화면의 관리자/게스트 버튼 동작 |
 | `HELM_ADMIN_EMAILS` | OAuth 쓸 때 | — | 본인 구글/카카오/네이버 이메일을 콤마로 |
 | `HELM_MASTER_KEY` | 개인 키 암호화 | — | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
-| `HELM_PUBLIC_URL` | OAuth | — | 로컬 `http://127.0.0.1:8080`. 운영은 Tailscale HTTPS URL |
+| `HELM_HOST` | 외부 접속 | — | `0.0.0.0`이면 이 PC 공인/LAN IP로 접속 |
+| `HELM_PUBLIC_URL` | OAuth | — | `http://<공인IP>:포트`. OAuth 콘솔 Callback에도 동일하게 |
 | `GOOGLE_CLIENT_ID` `GOOGLE_CLIENT_SECRET` | 구글 로그인 | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) | 프로젝트 생성 → OAuth 동의 화면 → 사용자 인증 정보 → OAuth 클라이언트 ID(웹) → 승인된 리디렉션 URI에 `{HELM_PUBLIC_URL}/api/auth/google/callback` |
 | `KAKAO_CLIENT_ID` `KAKAO_CLIENT_SECRET` | 카카오 로그인 | [Kakao Developers](https://developers.kakao.com/console/app) | 앱 생성 → 플랫폼 Web 등록 → 카카오 로그인 활성화 → Redirect URI `{HELM_PUBLIC_URL}/api/auth/kakao/callback` → REST API 키 / Client Secret |
 | `NAVER_CLIENT_ID` `NAVER_CLIENT_SECRET` | 네이버 로그인 | [Naver Developers](https://developers.naver.com/apps/#/register) | 애플리케이션 등록(로그인 오픈API) → Callback `{HELM_PUBLIC_URL}/api/auth/naver/callback` |
@@ -261,7 +262,7 @@ flowchart TB
 ### 2.4 네트워크 경계
 
 - Binance API: Mac mini 공인 IP를 API 키 화이트리스트에 등록. ISP IP 변경 시 키 무효화 → 운영 문서에 IP 변경 대응 절차를 둔다.
-- 웹 대시보드: 공인 인터넷에 열지 않는다. **Tailscale**로 폰/노트북만 접속.
+- 웹 대시보드: `HELM_HOST=0.0.0.0`으로 이 PC에서 연다. 외부 접속은 공유기 포트포워드 + 방화벽 inbound. 로그인·레이트 리밋이 있다.
 - 텔레그램: outbound HTTPS만. inbound 포트 불필요.
 - 워치독 VPS: Redis heartbeat만 읽고, 거래소 API 키는 갖지 않는다. 청산 권한은 로컬 ControlActor와 거래소 조건부 주문에만 있다.
 

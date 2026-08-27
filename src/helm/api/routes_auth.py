@@ -146,7 +146,7 @@ def approve(user_id: int, request: Request, user: User = Depends(current_user)) 
         state_of(request).settings,
         target,
         "helm-trader 승인",
-        "관리자가 계정을 승인했습니다. Tailscale에서 대시보드를 사용하세요.",
+        "관리자가 계정을 승인했습니다. 대시보드에 다시 로그인하세요.",
     )
     return target.to_public()
 

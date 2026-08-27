@@ -51,6 +51,10 @@ export const api = {
   toggleJob: (id: number, enabled: boolean) =>
     request(`/api/manual-jobs/${id}/toggle`, { method: "POST", body: JSON.stringify({ enabled }) }),
   deleteJob: (id: number) => request(`/api/manual-jobs/${id}`, { method: "DELETE" }),
+  catalog: (market = "futures") =>
+    request<{ symbols: Array<{ symbol: string; base: string; quote: string; market?: string }> }>(
+      `/api/market/catalog?market=${market}`,
+    ),
   klines: (symbol: string) =>
     request<{ bars: Array<{ time: number; open: number; high: number; low: number; close: number }> }>(
       `/api/market/klines?symbol=${symbol}`,
