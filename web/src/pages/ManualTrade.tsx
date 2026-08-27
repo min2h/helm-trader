@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { LoadingBar } from "../LoadingBar";
+import { NumberField } from "../NumberField";
 import { SymbolSearch, type CatalogItem } from "../SymbolSearch";
+import { formatUsdt, formatDecimal, parseAmount } from "../format";
 import { SCHEDULE, labelOf } from "../labels";
 
 export function ManualTrade({
@@ -22,6 +25,21 @@ export function ManualTrade({
   const [upper, setUpper] = useState("75000");
   const [size, setSize] = useState("100");
   const [schedule, setSchedule] = useState("every_15m");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const lowerN = parseAmount(lower);
+  const upperN = parseAmount(upper);
+  const sizeN = parseAmount(size);
+  const errors = useMemo(() => {
+    const out: string[] = [];
+    if (!symbol.trim()) out.push("종목을 고르세요.");
+    if (lowerN === null || lowerN <= 0) out.push("하한은 0보다 큰 숫자여야 합니다.");
+    if (upperN === null || upperN <= 0) out.push("상한은 0보다 큰 숫자여야 합니다.");
+    if (lowerN !== null && upperN !== null && lowerN >= upperN) out.push("하한은 상한보다 작아야 합니다.");
+    if (sizeN === null || sizeN < 10) out.push("금액은 10 USDT 이상이어야 합니다.");
+    return out;
+  }, [symbol, lowerN, upperN, sizeN]);
 
   return (
     <section>
@@ -36,19 +54,33 @@ export function ManualTrade({
         </div>
       )}
       <p className="muted">하한 = 손절, 상한 = 익절. AI 키 없이 저장됩니다. 실주문 연결 전엔 의도로만 남습니다.</p>
+      <LoadingBar show={busy} label="저장하는 중…" />
 
       <form
         className="card form-grid"
         onSubmit={async (event) => {
           event.preventDefault();
-          await onCreate({
-            symbol,
-            lower: Number(lower),
-            upper: Number(upper),
-            size_usdt: Number(size),
-            schedule,
-            side: "BUY",
-          });
+          if (errors.length || lowerN === null || upperN === null || sizeN === null) {
+            setMessage(errors[0] || "입력을 확인하세요.");
+            return;
+          }
+          setBusy(true);
+          setMessage("");
+          try {
+            await onCreate({
+              symbol,
+              lower: lowerN,
+              upper: upperN,
+              size_usdt: sizeN,
+              schedule,
+              side: "BUY",
+            });
+            setMessage("밴드를 저장했습니다.");
+          } catch (err) {
+            setMessage(err instanceof Error ? err.message : "저장에 실패했습니다.");
+          } finally {
+            setBusy(false);
+          }
         }}
       >
         <label>
@@ -57,15 +89,15 @@ export function ManualTrade({
         </label>
         <label>
           하한 (손절)
-          <input value={lower} onChange={(e) => setLower(e.target.value)} />
+          <NumberField value={lower} onChange={setLower} decimals={2} min={0} placeholder="60,000.00" />
         </label>
         <label>
           상한 (익절)
-          <input value={upper} onChange={(e) => setUpper(e.target.value)} />
+          <NumberField value={upper} onChange={setUpper} decimals={2} min={0} placeholder="75,000.00" />
         </label>
         <label>
           금액 USDT
-          <input value={size} onChange={(e) => setSize(e.target.value)} />
+          <NumberField value={size} onChange={setSize} decimals={0} min={10} placeholder="100" />
         </label>
         <label>
           스케줄
@@ -75,10 +107,11 @@ export function ManualTrade({
             <option value="daily_0800">매일 08:00</option>
           </select>
         </label>
-        <button type="submit" className="primary">
-          밴드 저장
+        <button type="submit" className="primary" disabled={busy || errors.length > 0}>
+          {busy ? "저장 중…" : "밴드 저장"}
         </button>
       </form>
+      {errors.length ? <p className="field-error">{errors[0]}</p> : message ? <p className="muted">{message}</p> : null}
 
       <div className="grid-3" style={{ marginTop: 14 }}>
         {jobs.length === 0 ? <p className="muted">저장된 밴드가 없습니다.</p> : null}
@@ -91,15 +124,15 @@ export function ManualTrade({
             <div className="job-meta">
               <div>
                 <dt>하한</dt>
-                <dd>{String(job.lower)}</dd>
+                <dd>{formatDecimal(job.lower, 2)}</dd>
               </div>
               <div>
                 <dt>상한</dt>
-                <dd>{String(job.upper)}</dd>
+                <dd>{formatDecimal(job.upper, 2)}</dd>
               </div>
               <div>
                 <dt>금액</dt>
-                <dd>{String(job.size_usdt)} USDT</dd>
+                <dd>{formatUsdt(job.size_usdt, 0)}</dd>
               </div>
               <div>
                 <dt>스케줄</dt>
@@ -107,10 +140,33 @@ export function ManualTrade({
               </div>
             </div>
             <div className="actions">
-              <button type="button" onClick={() => onToggle(Number(job.id), !job.enabled)}>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await onToggle(Number(job.id), !job.enabled);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
                 {job.enabled ? "끄기" : "켜기"}
               </button>
-              <button type="button" className="danger" onClick={() => onDelete(Number(job.id))}>
+              <button
+                type="button"
+                className="danger"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await onDelete(Number(job.id));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
                 삭제
               </button>
             </div>

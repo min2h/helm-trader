@@ -577,6 +577,44 @@ button.danger {
   margin: 0 0 12px;
 }
 
+.loading-wrap {
+  margin: 8px 0 12px;
+}
+
+.loading-bar {
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  background-size: 200% 100%;
+  animation: loading-slide 1.1s linear infinite;
+}
+
+.loading-label {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+@keyframes loading-slide {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+input.invalid,
+select.invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-dim);
+}
+
+.field-error {
+  color: var(--danger);
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
 @media (max-width: 900px) {
   .invest-layout {
     grid-template-columns: 1fr;

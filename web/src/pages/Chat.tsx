@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LoadingBar } from "../LoadingBar";
 
 const PRESETS = [
   "지금 레짐은 추세인가 횡보인가? 4개 시나리오로 답해줘.",
@@ -54,6 +55,7 @@ export function Chat({
           </button>
         ) : null}
       </div>
+      <LoadingBar show={busy} label={busy ? "AI가 답하는 중…" : undefined} />
       {!hasKey ? (
         <p className="state-banner soft_stop">계정 옆 설정에서 개인 LLM 키를 넣어야 분석이 됩니다. 왼쪽 수동투자는 키 없이 됩니다.</p>
       ) : (
@@ -72,7 +74,7 @@ export function Chat({
           <div className="stack-fields">
             <div className="presets">
               {PRESETS.map((item) => (
-                <button key={item} type="button" onClick={() => setText(item)}>
+                <button key={item} type="button" disabled={busy} onClick={() => setText(item)}>
                   {item}
                 </button>
               ))}
@@ -101,11 +103,12 @@ export function Chat({
             >
               <textarea
                 value={text}
+                disabled={busy}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="예: BTC 15분봉 추세가 꺾이면 어떤 시나리오를 보나?"
               />
-              <button type="submit" className="primary" disabled={busy}>
-                질문 보내기
+              <button type="submit" className="primary" disabled={busy || !text.trim()}>
+                {busy ? "보내는 중…" : "질문 보내기"}
               </button>
             </form>
           </div>

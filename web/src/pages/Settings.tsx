@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { Me } from "../api";
+import { LoadingBar } from "../LoadingBar";
+import { NumberField } from "../NumberField";
 import { RadioGroup } from "../RadioGroup";
+import { formatDecimal, formatInt, formatPct, formatUsdt, isEmail, parseAmount } from "../format";
 
 const GROUPS = [
   {
@@ -79,7 +82,7 @@ export function Settings({
 }: {
   me: Me;
   params: Record<string, unknown> | null;
-  onPatch: (key: string, value: string) => void;
+  onPatch: (key: string, value: string) => void | Promise<void>;
   onProfile: (body: Record<string, unknown>) => Promise<void>;
   onSecrets: (body: Record<string, string>) => Promise<void>;
 }) {
@@ -90,6 +93,8 @@ export function Settings({
   const [llmProvider, setLlmProvider] = useState(me.secrets.llm_provider || "anthropic");
   const [binanceKey, setBinanceKey] = useState("");
   const [binanceSecret, setBinanceSecret] = useState("");
+  const [busy, setBusy] = useState("");
+  const [notice, setNotice] = useState("");
   const risk = asRecord(params?.risk);
   const strategy = asRecord(params?.strategy);
   const trend = asRecord(strategy.trend);
@@ -104,39 +109,80 @@ export function Settings({
           <h2>설정</h2>
         </div>
       </div>
+      <LoadingBar show={Boolean(busy)} label={busy} />
+      {notice ? (
+        <p className={/실패|입력|형식|함께|이상/.test(notice) ? "field-error" : "muted"}>{notice}</p>
+      ) : null}
 
       <div className="grid-2">
         <form
           className="card stack-fields"
           onSubmit={async (event) => {
             event.preventDefault();
-            await onProfile({
-              nickname,
-              notify_address: emailAddr,
-              min_equity_usdt: Number(minEq),
-              notify_email: me.notify_email,
-              notify_telegram: me.notify_telegram,
-              theme: me.theme,
-            });
+            const equity = parseAmount(minEq);
+            if (!nickname.trim()) {
+              setNotice("닉네임을 입력하세요.");
+              return;
+            }
+            if (!isEmail(emailAddr)) {
+              setNotice("알림 이메일 형식이 아닙니다.");
+              return;
+            }
+            if (equity === null || equity < 0) {
+              setNotice("MIN USDT는 0 이상이어야 합니다.");
+              return;
+            }
+            setBusy("프로필 저장 중…");
+            setNotice("");
+            try {
+              await onProfile({
+                nickname: nickname.trim(),
+                notify_address: emailAddr.trim(),
+                min_equity_usdt: equity,
+                notify_email: me.notify_email,
+                notify_telegram: me.notify_telegram,
+                theme: me.theme,
+              });
+              setNotice("프로필을 저장했습니다.");
+            } catch (err) {
+              setNotice(err instanceof Error ? err.message : "프로필 저장 실패");
+            } finally {
+              setBusy("");
+            }
           }}
         >
           <h3>프로필</h3>
           <div className="form-grid">
             <label>
               닉네임
-              <input value={nickname} onChange={(e) => setNickname(e.target.value)} />
+              <input
+                className={nickname.trim() ? "" : "invalid"}
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+              />
             </label>
             <label>
               알림 이메일
-              <input value={emailAddr} onChange={(e) => setEmailAddr(e.target.value)} />
+              <input
+                className={isEmail(emailAddr) ? "" : "invalid"}
+                value={emailAddr}
+                onChange={(e) => setEmailAddr(e.target.value)}
+                placeholder="name@example.com"
+              />
             </label>
             <label>
               청산방지 MIN USDT
-              <input value={minEq} onChange={(e) => setMinEq(e.target.value)} />
+              <NumberField value={minEq} onChange={setMinEq} decimals={0} min={0} placeholder="0" />
             </label>
             <label>
               테마
-              <select value={me.theme} onChange={(e) => void onProfile({ theme: e.target.value })}>
+              <select
+                value={me.theme}
+                onChange={(e) => {
+                  setBusy("테마 저장 중…");
+                  void onProfile({ theme: e.target.value }).finally(() => setBusy(""));
+                }}
+              >
                 <option value="dark">다크</option>
                 <option value="light">라이트</option>
               </select>
@@ -145,7 +191,10 @@ export function Settings({
               <input
                 type="checkbox"
                 checked={me.notify_email}
-                onChange={(e) => void onProfile({ notify_email: e.target.checked })}
+                onChange={(e) => {
+                  setBusy("알림 저장 중…");
+                  void onProfile({ notify_email: e.target.checked }).finally(() => setBusy(""));
+                }}
               />
               이메일 알림
             </label>
@@ -153,13 +202,16 @@ export function Settings({
               <input
                 type="checkbox"
                 checked={me.notify_telegram}
-                onChange={(e) => void onProfile({ notify_telegram: e.target.checked })}
+                onChange={(e) => {
+                  setBusy("알림 저장 중…");
+                  void onProfile({ notify_telegram: e.target.checked }).finally(() => setBusy(""));
+                }}
               />
               텔레그램 알림
             </label>
           </div>
-          <button type="submit" className="primary">
-            프로필 저장
+          <button type="submit" className="primary" disabled={Boolean(busy)}>
+            {busy.startsWith("프로필") ? "저장 중…" : "프로필 저장"}
           </button>
         </form>
 
@@ -167,15 +219,32 @@ export function Settings({
           className="card stack-fields"
           onSubmit={async (event) => {
             event.preventDefault();
-            await onSecrets({
-              llm_provider: llmProvider,
-              llm_key: llmKey,
-              binance_key: binanceKey,
-              binance_secret: binanceSecret,
-            });
-            setLlmKey("");
-            setBinanceKey("");
-            setBinanceSecret("");
+            if (!llmKey && !binanceKey && !binanceSecret) {
+              setNotice("저장할 키를 한 칸 이상 입력하세요.");
+              return;
+            }
+            if ((binanceKey && !binanceSecret) || (!binanceKey && binanceSecret)) {
+              setNotice("Binance key와 secret을 함께 넣으세요.");
+              return;
+            }
+            setBusy("키 저장 중…");
+            setNotice("");
+            try {
+              await onSecrets({
+                llm_provider: llmProvider,
+                llm_key: llmKey,
+                binance_key: binanceKey,
+                binance_secret: binanceSecret,
+              });
+              setLlmKey("");
+              setBinanceKey("");
+              setBinanceSecret("");
+              setNotice("키를 저장했습니다. 값은 다시 보이지 않습니다.");
+            } catch (err) {
+              setNotice(err instanceof Error ? err.message : "키 저장 실패");
+            } finally {
+              setBusy("");
+            }
           }}
         >
           <h3>개인 키 (쓰기 전용)</h3>
@@ -209,8 +278,8 @@ export function Settings({
               <input type="password" value={binanceSecret} onChange={(e) => setBinanceSecret(e.target.value)} />
             </label>
           </div>
-          <button type="submit" className="primary">
-            키 저장
+          <button type="submit" className="primary" disabled={Boolean(busy)}>
+            {busy.startsWith("키") ? "저장 중…" : "키 저장"}
           </button>
         </form>
       </div>
@@ -231,12 +300,15 @@ export function Settings({
               hint={group.hint}
               value={String(params[group.key] ?? "")}
               options={group.options}
-              onChange={(value) => onPatch(group.key, value)}
+              onChange={(value) => {
+                setBusy("설정 반영 중…");
+                void Promise.resolve(onPatch(group.key, value)).finally(() => setBusy(""));
+              }}
             />
           ))}
         </div>
       ) : (
-        <p className="muted">매매 파라미터를 불러오는 중…</p>
+        <LoadingBar show label="매매 파라미터를 불러오는 중…" />
       )}
 
       <div className="page-head">
@@ -248,27 +320,27 @@ export function Settings({
       <div className="grid-stats">
         <article className="stat">
           <dt>레버리지</dt>
-          <dd>{String(risk.leverage ?? "—")}x</dd>
+          <dd>{risk.leverage == null ? "—" : `${formatInt(risk.leverage)}x`}</dd>
         </article>
         <article className="stat">
           <dt>회당 리스크</dt>
-          <dd>{String(risk.per_trade_risk_pct ?? "—")}%</dd>
+          <dd>{risk.per_trade_risk_pct == null ? "—" : formatPct(risk.per_trade_risk_pct, 1)}</dd>
         </article>
         <article className="stat">
           <dt>일일 손실 한도</dt>
-          <dd>{String(risk.daily_loss_limit_pct ?? "—")}%</dd>
+          <dd>{risk.daily_loss_limit_pct == null ? "—" : formatPct(risk.daily_loss_limit_pct, 1)}</dd>
         </article>
         <article className="stat">
           <dt>포트폴리오 MDD 킬</dt>
-          <dd>{String(risk.portfolio_mdd_kill_pct ?? "—")}%</dd>
+          <dd>{risk.portfolio_mdd_kill_pct == null ? "—" : formatPct(risk.portfolio_mdd_kill_pct, 1)}</dd>
         </article>
         <article className="stat">
           <dt>동시 포지션</dt>
-          <dd>{String(risk.max_concurrent_positions ?? "—")}</dd>
+          <dd>{formatInt(risk.max_concurrent_positions)}</dd>
         </article>
         <article className="stat">
           <dt>MIN 잔고</dt>
-          <dd>{String(risk.min_equity_usdt ?? me.min_equity_usdt)}</dd>
+          <dd>{formatUsdt(risk.min_equity_usdt ?? me.min_equity_usdt, 0)}</dd>
         </article>
       </div>
 
@@ -279,24 +351,24 @@ export function Settings({
             <dt>봉</dt>
             <dd>{String(trend.timeframe ?? "—")}</dd>
             <dt>Donchian</dt>
-            <dd>{String(trend.donchian_n ?? "—")}</dd>
+            <dd>{formatInt(trend.donchian_n)}</dd>
             <dt>ATR n</dt>
-            <dd>{String(trend.atr_n ?? "—")}</dd>
+            <dd>{formatInt(trend.atr_n)}</dd>
             <dt>ATR 배수</dt>
-            <dd>{String(trend.atr_stop_mult ?? "—")}</dd>
+            <dd>{formatDecimal(trend.atr_stop_mult, 1)}</dd>
             <dt>최소 ADX</dt>
-            <dd>{String(trend.min_adx ?? "—")}</dd>
+            <dd>{formatDecimal(trend.min_adx, 1)}</dd>
           </dl>
         </article>
         <article className="card">
           <h3>펀딩 차익</h3>
           <dl className="kv">
             <dt>최소 APR</dt>
-            <dd>{String(funding.min_funding_apr ?? "—")}</dd>
+            <dd>{formatDecimal(funding.min_funding_apr, 2)}</dd>
             <dt>베이시스</dt>
-            <dd>{String(funding.max_basis_bps ?? "—")} bps</dd>
+            <dd>{formatDecimal(funding.max_basis_bps, 1)} bps</dd>
             <dt>리밸런스</dt>
-            <dd>{String(funding.rebalance_threshold_bps ?? "—")} bps</dd>
+            <dd>{formatDecimal(funding.rebalance_threshold_bps, 1)} bps</dd>
           </dl>
         </article>
         <article className="card">
@@ -305,11 +377,11 @@ export function Settings({
             <dt>봉</dt>
             <dd>{String(grid.timeframe ?? "—")}</dd>
             <dt>ATR 배수</dt>
-            <dd>{String(grid.grid_atr_mult ?? "—")}</dd>
+            <dd>{formatDecimal(grid.grid_atr_mult, 2)}</dd>
             <dt>레벨</dt>
-            <dd>{String(grid.levels ?? "—")}</dd>
+            <dd>{formatInt(grid.levels)}</dd>
             <dt>재고 한도</dt>
-            <dd>{String(grid.max_inventory_pct ?? "—")}%</dd>
+            <dd>{formatPct(grid.max_inventory_pct, 0)}</dd>
           </dl>
         </article>
       </div>

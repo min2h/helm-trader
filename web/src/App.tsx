@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type Me } from "./api";
+import { LoadingBar } from "./LoadingBar";
 import { SymbolSearch, type CatalogItem } from "./SymbolSearch";
 import { Admin } from "./pages/Admin";
 import { ChartPanel } from "./pages/ChartPanel";
@@ -33,6 +34,9 @@ export function App() {
   const [users, setUsers] = useState<Me[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [error, setError] = useState("");
+  const [pageLoading, setPageLoading] = useState(false);
+  const [actionBusy, setActionBusy] = useState("");
+  const [chartLoading, setChartLoading] = useState(false);
 
   async function loadMe() {
     try {
@@ -43,8 +47,9 @@ export function App() {
     }
   }
 
-  async function refresh() {
+  async function refresh(opts?: { silent?: boolean }) {
     if (!me || me.status !== "approved") return;
+    if (!opts?.silent) setPageLoading(true);
     const errors: string[] = [];
     const take = async <T,>(job: Promise<T>, apply: (value: T) => void) => {
       try {
@@ -61,6 +66,31 @@ export function App() {
       take(api.jobs(), setJobs),
     ]);
     setError(errors[0] ?? "");
+    if (!opts?.silent) setPageLoading(false);
+  }
+
+  async function runAction(label: string, fn: () => Promise<void>) {
+    setActionBusy(label);
+    setError("");
+    try {
+      await fn();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "요청에 실패했습니다.");
+    } finally {
+      setActionBusy("");
+    }
+  }
+
+  async function loadChart(symbol: string) {
+    setChartLoading(true);
+    try {
+      const res = await api.klines(symbol);
+      setBars(res.bars);
+    } catch {
+      setBars([]);
+    } finally {
+      setChartLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -69,7 +99,7 @@ export function App() {
 
   useEffect(() => {
     void refresh();
-    const id = window.setInterval(() => void refresh(), 8000);
+    const id = window.setInterval(() => void refresh({ silent: true }), 8000);
     return () => window.clearInterval(id);
   }, [me?.id, me?.status]);
 
@@ -82,7 +112,7 @@ export function App() {
   useEffect(() => {
     if (tab === "chart") {
       const symbol = chartSymbol || String(jobs[0]?.symbol || "BTCUSDT");
-      void api.klines(symbol).then((res) => setBars(res.bars)).catch(() => setBars([]));
+      void loadChart(symbol);
     }
     if (tab === "invest" && me?.status === "approved") {
       void api.messages().then(setMessages).catch(() => undefined);
@@ -174,25 +204,33 @@ export function App() {
           ))}
       </nav>
       {error ? <p className="error">{error}</p> : null}
+      <LoadingBar show={pageLoading || Boolean(actionBusy)} label={actionBusy || "불러오는 중…"} />
       {tab === "dash" ? (
         <Dashboard
           status={status}
           params={params}
+          loading={pageLoading || Boolean(actionBusy)}
           onOpenSettings={() => setTab("settings")}
-          onSoftStop={async () => {
-            await api.softStop();
-            await refresh();
-          }}
-          onResume={async () => {
-            await api.resume();
-            await refresh();
-          }}
+          onSoftStop={() =>
+            runAction("소프트 정지 중…", async () => {
+              await api.softStop();
+              await refresh({ silent: true });
+            })
+          }
+          onResume={() =>
+            runAction("재개 중…", async () => {
+              await api.resume();
+              await refresh({ silent: true });
+            })
+          }
           onHardKill={async () => {
             if (!window.confirm("5초 안에 한 번 더 확인합니다. 전량 청산할까요?")) return;
-            const prepared = await api.prepareKill();
-            if (!window.confirm("정말 전량 청산합니까?")) return;
-            await api.confirmKill(prepared.token);
-            await refresh();
+            await runAction("전량 청산 확인 중…", async () => {
+              const prepared = await api.prepareKill();
+              if (!window.confirm("정말 전량 청산합니까?")) return;
+              await api.confirmKill(prepared.token);
+              await refresh({ silent: true });
+            });
           }}
         />
       ) : null}
@@ -213,11 +251,12 @@ export function App() {
                 catalog={catalog}
                 onChange={(symbol) => {
                   setChartSymbol(symbol);
-                  void api.klines(symbol).then((res) => setBars(res.bars)).catch(() => setBars([]));
+                  void loadChart(symbol);
                 }}
               />
             </label>
           </div>
+          <LoadingBar show={chartLoading} label="시세를 불러오는 중…" />
           {bars.length ? (
             <ChartPanel
               bars={bars}
@@ -225,7 +264,7 @@ export function App() {
               upper={Number(jobs[0]?.upper || 0)}
               light={theme === "light"}
             />
-          ) : (
+          ) : chartLoading ? null : (
             <p className="muted">시세를 불러오지 못했습니다. 종목을 다시 골라 보세요.</p>
           )}
         </section>
@@ -246,15 +285,15 @@ export function App() {
               catalog={catalog}
               onCreate={async (body) => {
                 await api.createJob(body);
-                await refresh();
+                await refresh({ silent: true });
               }}
               onToggle={async (id, enabled) => {
                 await api.toggleJob(id, enabled);
-                await refresh();
+                await refresh({ silent: true });
               }}
               onDelete={async (id) => {
                 await api.deleteJob(id);
-                await refresh();
+                await refresh({ silent: true });
               }}
             />
             <Chat
@@ -282,7 +321,7 @@ export function App() {
           params={params}
           onPatch={async (key, value) => {
             await api.putParams({ [key]: value });
-            await refresh();
+            await refresh({ silent: true });
           }}
           onProfile={async (body) => {
             setMe(await api.patchMe(body));
@@ -299,7 +338,7 @@ export function App() {
           catalog={catalog}
           onApprove={async (symbol) => {
             await api.approve(symbol);
-            await refresh();
+            await refresh({ silent: true });
           }}
           onAddActive={async (symbol) => {
             const current = symbols?.active ?? [];

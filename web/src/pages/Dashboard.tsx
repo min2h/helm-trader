@@ -1,3 +1,5 @@
+import { LoadingBar } from "../LoadingBar";
+import { formatInt, formatPct, formatUsdt, formatWhen } from "../format";
 import {
   AI_LEVEL,
   MARKET_MODE,
@@ -26,15 +28,17 @@ export function Dashboard({
   onResume,
   onHardKill,
   onOpenSettings,
+  loading = false,
 }: {
   status: Record<string, unknown> | null;
   params: Record<string, unknown> | null;
-  onSoftStop: () => void;
-  onResume: () => void;
-  onHardKill: () => void;
+  onSoftStop: () => void | Promise<void>;
+  onResume: () => void | Promise<void>;
+  onHardKill: () => void | Promise<void>;
   onOpenSettings: () => void;
+  loading?: boolean;
 }) {
-  if (!status) return <p className="muted">상태를 불러오는 중…</p>;
+  if (!status) return <LoadingBar show label="상태를 불러오는 중…" />;
   const state = String(status.run_state);
   const risk = asRecord(params?.risk);
   const symbols = Array.isArray(status.active_symbols) ? (status.active_symbols as string[]) : [];
@@ -51,6 +55,7 @@ export function Dashboard({
           설정 열기
         </button>
       </div>
+      <LoadingBar show={loading} label="최신 상태 확인 중…" />
 
       <p className={`state-banner ${state}`}>
         {labelOf(RUN_STATE, state)} — {STATE_HELP[state] ?? state}
@@ -60,22 +65,22 @@ export function Dashboard({
         <article className="stat">
           <dt>오늘 손익</dt>
           <dd className={Number(status.daily_pnl_pct) < 0 ? "neg" : "pos"}>
-            {Number(status.daily_pnl_pct).toFixed(2)}%
+            {formatPct(status.daily_pnl_pct)}
           </dd>
         </article>
         <article className="stat">
           <dt>드로다운</dt>
           <dd className={Number(status.drawdown_from_peak_pct) > 0 ? "neg" : ""}>
-            {Number(status.drawdown_from_peak_pct || 0).toFixed(2)}%
+            {formatPct(status.drawdown_from_peak_pct || 0)}
           </dd>
         </article>
         <article className="stat">
           <dt>열린 포지션</dt>
-          <dd>{String(status.open_positions ?? 0)}</dd>
+          <dd>{formatInt(status.open_positions ?? 0)}</dd>
         </article>
         <article className="stat">
           <dt>MIN 잔고</dt>
-          <dd>{Number(status.min_equity_usdt || 0).toLocaleString()} USDT</dd>
+          <dd>{formatUsdt(status.min_equity_usdt || 0, 0)}</dd>
         </article>
         <article className="stat">
           <dt>AI 배치</dt>
@@ -83,7 +88,7 @@ export function Dashboard({
         </article>
         <article className="stat">
           <dt>하트비트</dt>
-          <dd style={{ fontSize: 15 }}>{String(status.heartbeat_at ?? "아직 없음")}</dd>
+          <dd style={{ fontSize: 15 }}>{formatWhen(status.heartbeat_at)}</dd>
         </article>
       </div>
 
@@ -129,19 +134,19 @@ export function Dashboard({
       <div className="grid-stats">
         <article className="stat">
           <dt>레버리지</dt>
-          <dd>{String(risk.leverage ?? "—")}x</dd>
+          <dd>{risk.leverage == null ? "—" : `${formatInt(risk.leverage)}x`}</dd>
         </article>
         <article className="stat">
           <dt>회당 리스크</dt>
-          <dd>{String(risk.per_trade_risk_pct ?? "—")}%</dd>
+          <dd>{risk.per_trade_risk_pct == null ? "—" : formatPct(risk.per_trade_risk_pct, 1)}</dd>
         </article>
         <article className="stat">
           <dt>일일 한도</dt>
-          <dd>{String(risk.daily_loss_limit_pct ?? "—")}%</dd>
+          <dd>{risk.daily_loss_limit_pct == null ? "—" : formatPct(risk.daily_loss_limit_pct, 1)}</dd>
         </article>
         <article className="stat">
           <dt>MDD 킬</dt>
-          <dd>{String(risk.portfolio_mdd_kill_pct ?? "—")}%</dd>
+          <dd>{risk.portfolio_mdd_kill_pct == null ? "—" : formatPct(risk.portfolio_mdd_kill_pct, 1)}</dd>
         </article>
       </div>
 
@@ -149,22 +154,22 @@ export function Dashboard({
         <article className="help-card">
           <h3>소프트 정지</h3>
           <p className="muted">새 매수만 멈춥니다. 이미 연 포지션의 손절·익절은 거래소에 남습니다.</p>
-          <button type="button" onClick={onSoftStop}>
-            신규 진입 중단
+          <button type="button" disabled={loading} onClick={() => void onSoftStop()}>
+            {loading ? "처리 중…" : "신규 진입 중단"}
           </button>
         </article>
         <article className="help-card">
           <h3>재개</h3>
           <p className="muted">소프트 정지 후 다시 룰대로 진입합니다. 하드 킬 뒤에는 포지션이 비어 있어야 합니다.</p>
-          <button type="button" className="primary" onClick={onResume}>
-            다시 가동
+          <button type="button" className="primary" disabled={loading} onClick={() => void onResume()}>
+            {loading ? "처리 중…" : "다시 가동"}
           </button>
         </article>
         <article className="help-card">
           <h3>전량 청산</h3>
           <p className="muted">두 번 확인합니다. 실주문 연결 전엔 명령만 기록됩니다.</p>
-          <button type="button" className="danger" onClick={onHardKill}>
-            전량 청산 (2단계)
+          <button type="button" className="danger" disabled={loading} onClick={() => void onHardKill()}>
+            {loading ? "처리 중…" : "전량 청산 (2단계)"}
           </button>
         </article>
       </div>
@@ -181,7 +186,7 @@ export function Dashboard({
         </div>
         {last.kind ? (
           <p className="muted" style={{ marginTop: 12 }}>
-            마지막 명령: {String(last.kind)} · {String(last.reason ?? "")} · {String(last.at ?? "")}
+            마지막 명령: {String(last.kind)} · {String(last.reason ?? "")} · {formatWhen(last.at)}
           </p>
         ) : null}
       </article>
