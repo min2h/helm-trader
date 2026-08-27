@@ -58,7 +58,20 @@
 | `HELM_ADMIN_EMAILS` | `.env` | — | 첫 관리자로 쓸 Gmail |
 | `HELM_MASTER_KEY` | `.env` | 로컬 생성 | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
 | `GOOGLE_CLIENT_ID/SECRET` | `.env` | [Google Cloud 사용자 인증 정보](https://console.cloud.google.com/apis/credentials) | 웹 앱 OAuth. JS 원본 `http://127.0.0.1:8090`, redirect `http://127.0.0.1:8090/api/auth/google/callback` |
-| 개인 Binance key/secret | 설정 화면 | [Binance API Management](https://www.binance.com/en/my/settings/api-management) | 출금 OFF, IP 제한, 거래 권한만 |
+| 개인 Binance key/secret | 설정 화면 | [Binance API Management](https://www.binance.com/en/my/settings/api-management) | 아래 17.2.1 |
+
+### 17.2.1 Binance API 생성
+
+페이지: [API Management](https://www.binance.com/en/my/settings/api-management)
+
+1. Binance 로그인. KYC·2FA 필요. 선물을 쓰면 USDⓈ-M 선물 계정을 키 만들기 **전에** 연다.
+2. 프로필 → API Management → **Create API** → **System-generated**.
+3. 이름 예: `helm-trader`. 이메일/인증앱 확인.
+4. 권한: **Enable Reading** 켜기. 현물이면 **Enable Spot & Margin Trading**. 선물이면 **Enable Futures**. 둘 다 쓰면 둘 다.
+5. **Enable Withdrawals / Internal Transfer / Universal Transfer는 끄기.**
+6. **Restrict access to trusted IPs only.** 이 PC 공인 IP는 https://api.ipify.org . Unrestricted는 약 90일 만료.
+7. API Key · Secret을 즉시 복사(Secret은 한 번만 보이는 경우가 많음).
+8. 대시보드 설정 → Binance key/secret에 넣고 저장. GitHub·`.env`·채팅에 올리지 말 것.
 | Anthropic API 키 | 설정 화면 | [Anthropic Console](https://console.anthropic.com/settings/keys) | Create Key 후 LLM=Anthropic |
 | OpenAI API 키 | 설정 화면 | [OpenAI API keys](https://platform.openai.com/api-keys) | Create key 후 LLM=OpenAI |
 | `TELEGRAM_BOT_TOKEN` / `CHAT_ID` | `.env` | [BotFather](https://t.me/BotFather) | `/newbot` 후 토큰, 본인 채팅 ID |
