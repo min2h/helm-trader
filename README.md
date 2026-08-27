@@ -1,5 +1,7 @@
 # helm-trader
 
+버전 **0.2.0** — 멀티유저 승인 대시보드 + 수동밴드 + 개인 LLM 분석.
+
 로컬 Mac mini에서 24시간 동작하는 Binance 자동매매 엔진.
 실행 경로는 결정론적 룰베이스이고, AI는 하루 1회 파라미터 제안과 종목 추천만 한다.
 사용자는 웹 대시보드의 라디오박스로 시장/전략/리스크를 지정하고, 휴대폰 텔레그램 버튼으로 즉시 중단하거나 재개한다.
@@ -26,6 +28,127 @@
 14. [법·세무 주의](#14-법세무-주의)
 15. [기대 성과 보정](#15-기대-성과-보정)
 16. [면책 조항](#16-면책-조항)
+17. [사용자 준비 사항](#17-사용자-준비-사항)
+18. [API 키 발급 목록](#18-api-키-발급-목록)
+
+---
+
+## 17. 사용자 준비 사항
+
+코드는 멀티유저 승인 대시보드까지 포함되어 있다. **실주문은 아직 나가지 않는다.** 라이브 체결은 Phase 2에서 연결한다.
+
+### 17.1 지금 구현된 것 / 아직인 것
+
+| 됨 | 아직 |
+| --- | --- |
+| Google/Kakao/Naver OAuth + 관리자 승인 | Nautilus 실주문 |
+| 유저별 params / 수동밴드 / 암호화된 개인 키 | 거래소 잔고 실시간 반영 |
+| 차트, 보고서, 다크/라이트, 닉네임, SMTP | `close_position` 실부착 |
+| 개인 LLM 키 채팅 + 고정 시스템 프롬프트 + 뉴스 헤드라인 | 유료 뉴스 API |
+| slowapi 레이트 리밋, 로그인 잠금, body 상한 | 공인망 DDoS (Cloudflare 필요, 이 프로젝트는 Tailscale 전용) |
+
+### 17.2 사용자가 발급해야 하는 키
+
+`.env.example`을 `.env`로 복사한다. 유저 Binance/LLM 키는 `.env`가 아니라 **대시보드 설정**에 넣는다.
+
+| 환경변수 | 필수 시점 | 발급 |
+| --- | --- | --- |
+| `HELM_ADMIN_EMAILS` | 첫 관리자 로그인 | 본인 OAuth 이메일 |
+| `HELM_MASTER_KEY` | 개인 키 암호화 | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+| `HELM_PUBLIC_URL` | OAuth 콜백 | Tailscale HTTPS 권장. 로컬은 `http://127.0.0.1:8080` |
+| `GOOGLE_CLIENT_ID/SECRET` | 구글 로그인 | Google Cloud OAuth. redirect: `{PUBLIC_URL}/api/auth/google/callback` |
+| `KAKAO_CLIENT_ID/SECRET` | 카카오 로그인 | Kakao Developers |
+| `NAVER_CLIENT_ID/SECRET` | 네이버 로그인 | Naver Developers |
+| `SMTP_*` | 메일 알림 | 지메일 앱 비밀번호 등 |
+| 개인 LLM 키 | AI 채팅/자동분석 | 각 사용자가 설정 화면에 입력 |
+| 개인 Binance 키 | 이후 실주문 | 출금 OFF, IP 화이트리스트 |
+| Tailscale | 폰 접속 | 포트포워드 금지 |
+
+로컬에서 OAuth 앱이 없으면 `HELM_AUTH_DEV=true` 후 로그인 화면의 "로컬 개발 로그인"을 쓴다.
+
+### 17.3 사용자가 직접 해야 하는 일
+
+1. Binance 현물/선물 이용 가능 여부 확인
+2. OAuth 앱 3종 생성, redirect URI 등록. HTTP 커스텀 호스트는 거절될 수 있어 **Tailscale Serve/Caddy HTTPS**를 쓴다
+3. `.env`에 관리자 이메일과 MASTER_KEY, OAuth, SMTP
+4. 가족/지인이 로그인 → 관리자 탭에서 승인
+5. 각자 설정에서 닉네임, 알림, MIN 잔고, (선택) LLM 키
+6. AI 키 없이 쓰려면 수동투자 탭에서 종목/상한/하한/스케줄만 저장
+
+```text
+cd helm-trader
+.\.venv\Scripts\activate
+pip install -e ".[dev]"
+pytest
+copy .env.example .env
+helm api
+```
+
+다른 터미널에서 `cd web && npm install && npm run dev` → `http://127.0.0.1:5173`
+
+Mac mini 운영으로 옮길 때
+
+5. `ops/macos/disable_sleep.sh` 실행, 자동 업데이트 재부팅 끄기.
+6. `ops/launchd/*.plist`의 `/Users/SHARED/helm-trader` 경로를 실제 경로로 바꾼 뒤 `launchctl load`.
+7. UPS 연결. API 키 IP 화이트리스트에 Mac mini 공인 IP 등록.
+8. 휴대폰과 Mac mini에 Tailscale 설치. 대시보드를 공인망에 열지 않는다.
+9. 실계좌 키는 DEMO 14일 + 소액 실계좌 4주를 끝낸 뒤에만 넣는다.
+
+### 17.4 에이전트(나)가 대신 할 수 없는 것
+
+- Binance / Telegram / LLM 콘솔 로그인과 키 발급
+- 출금 권한 제거, IP 화이트리스트 등록
+- 본인 계정 선물 이용 가능 여부 확인
+- 실자금 입금, 세금 신고, Tailscale 가입
+- 정전 대비 UPS 구매와 물리 배치
+
+키를 채팅에 붙여 넣지 말 것. `.env`와 대시보드 설정에만 넣는다.
+
+---
+
+## 18. API 키 발급 목록
+
+**지금 로컬만 쓰려면** `.env`에 `HELM_AUTH_DEV=true`만 있으면 관리자 개발 로그인으로 대시보드가 열린다. 아래는 기능별 필요 키다.
+
+### 18.1 서버 `.env`에 넣는 것
+
+| 변수 | 필수? | 발급 링크 | 방법 |
+| --- | --- | --- | --- |
+| `HELM_AUTH_DEV` | 로컬 개발 | — | `true`면 로그인 화면의 관리자/게스트 버튼 동작 |
+| `HELM_ADMIN_EMAILS` | OAuth 쓸 때 | — | 본인 구글/카카오/네이버 이메일을 콤마로 |
+| `HELM_MASTER_KEY` | 개인 키 암호화 | — | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+| `HELM_PUBLIC_URL` | OAuth | — | 로컬 `http://127.0.0.1:8080`. 운영은 Tailscale HTTPS URL |
+| `GOOGLE_CLIENT_ID` `GOOGLE_CLIENT_SECRET` | 구글 로그인 | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) | 프로젝트 생성 → OAuth 동의 화면 → 사용자 인증 정보 → OAuth 클라이언트 ID(웹) → 승인된 리디렉션 URI에 `{HELM_PUBLIC_URL}/api/auth/google/callback` |
+| `KAKAO_CLIENT_ID` `KAKAO_CLIENT_SECRET` | 카카오 로그인 | [Kakao Developers](https://developers.kakao.com/console/app) | 앱 생성 → 플랫폼 Web 등록 → 카카오 로그인 활성화 → Redirect URI `{HELM_PUBLIC_URL}/api/auth/kakao/callback` → REST API 키 / Client Secret |
+| `NAVER_CLIENT_ID` `NAVER_CLIENT_SECRET` | 네이버 로그인 | [Naver Developers](https://developers.naver.com/apps/#/register) | 애플리케이션 등록(로그인 오픈API) → Callback `{HELM_PUBLIC_URL}/api/auth/naver/callback` |
+| `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD` `SMTP_FROM` | 메일 알림 | Gmail: [앱 비밀번호](https://myaccount.google.com/apppasswords) | 2단계 인증 후 앱 비밀번호. HOST=`smtp.gmail.com` PORT=`587` |
+| `TELEGRAM_BOT_TOKEN` | 텔레그램 알림 | [BotFather](https://t.me/BotFather) | `/newbot` 후 토큰 |
+| `TELEGRAM_CHAT_ID` | 텔레그램 알림 | `https://api.telegram.org/bot<TOKEN>/getUpdates` | 봇에게 먼저 메시지 보낸 뒤 JSON의 `chat.id` |
+| `HELM_CORS_ORIGINS` | 프론트 분리 실행 | — | 기본 `http://127.0.0.1:5173,http://localhost:5173` |
+| `HELM_RATE_LIMIT` | 권장 true | — | 폭주 방지. 테스트는 false |
+
+### 18.2 대시보드 설정 화면에 넣는 것 (`.env` 아님)
+
+| 항목 | 필수? | 발급 링크 | 방법 |
+| --- | --- | --- | --- |
+| 개인 LLM 키 (Anthropic 또는 OpenAI) | AI 채팅/자동분석 | [Anthropic Console](https://console.anthropic.com/settings/keys) / [OpenAI API keys](https://platform.openai.com/api-keys) | 콘솔에서 Create key. **서버 `.env`가 아니라 각 사용자 설정에 입력** |
+| Binance API Key / Secret | 이후 실주문 | [Binance API Management](https://www.binance.com/en/my/settings/api-management) | Enable Reading + Enable Futures(쓸 경우). **Enable Withdrawals 끄기**. IP 화이트리스트. Demo는 [Demo Trading](https://www.binance.com/en/support/faq/detail/9be58f73029546d78c081d0f2b0f11d5) |
+| 닉네임 / 알림 이메일 / MIN USDT | 권장 | — | 설정 탭 |
+
+### 18.3 키가 필요 없는 기능
+
+공개 kline, 24h 티커, 펀딩, RSS 뉴스, 백테스트, 수동밴드 저장, 킬스위치 명령 기록.
+
+### 18.4 로컬 `.env` 최소 예시
+
+```text
+HELM_AUTH_DEV=true
+HELM_ADMIN_EMAILS=admin@local
+HELM_PUBLIC_URL=http://127.0.0.1:8080
+HELM_RATE_LIMIT=true
+HELM_CORS_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
+BINANCE_ENVIRONMENT=demo
+```
 
 ---
 

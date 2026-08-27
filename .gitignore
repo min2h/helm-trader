@@ -1,0 +1,32 @@
+# secrets and local state
+.env
+.env.local
+.env.*.local
+data/
+*.sqlite
+*.sqlite3
+*.db
+
+# python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+
+# node
+web/node_modules/
+web/dist/
+web/tsconfig.tsbuildinfo
+
+# os / ide
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

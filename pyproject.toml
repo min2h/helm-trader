@@ -1,0 +1,46 @@
+[project]
+name = "helm-trader"
+version = "0.2.0"
+description = "Local Binance trading engine with daily AI parameter proposals and a Telegram kill switch."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "httpx>=0.28",
+    "pandas>=2.2",
+    "numpy>=2.0",
+    "pyarrow>=17.0",
+    "python-telegram-bot>=21.10",
+    "python-dotenv>=1.0",
+    "sse-starlette>=2.2",
+    "cryptography>=44.0",
+    "itsdangerous>=2.2",
+    "slowapi>=0.1.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+]
+engine = [
+    "nautilus_trader>=1.220",
+]
+
+[project.scripts]
+helm = "helm.cli:main"
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"

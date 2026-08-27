@@ -1,0 +1,297 @@
+:root {
+  color-scheme: dark;
+  --bg: #14110d;
+  --panel: #1d1913;
+  --line: #3a3226;
+  --ink: #f3e6cf;
+  --muted: #9a8b73;
+  --accent: #d6a45a;
+  --danger: #c45c3e;
+  --good: #7d9a6a;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+}
+
+.shell.light {
+  color-scheme: light;
+  --bg: #f6f0e6;
+  --panel: #fffaf2;
+  --line: #d7cbb8;
+  --ink: #2a241c;
+  --muted: #6f6556;
+  --accent: #8a5a20;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, #2a2218, #14110d 46%);
+  color: var(--ink);
+}
+
+.shell.light,
+.shell.light ~ * {
+  background: #f6f0e6;
+}
+
+.shell {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 28px 20px 80px;
+  min-height: 100vh;
+}
+
+header,
+.stats,
+.actions,
+nav,
+.oauth,
+.band-form {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+header {
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 16px;
+}
+
+h1,
+h2,
+.eyebrow {
+  margin: 0;
+}
+
+h2 {
+  margin: 28px 0 12px;
+}
+
+.eyebrow {
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.muted,
+.token,
+dt,
+summary {
+  color: var(--muted);
+}
+
+input,
+select,
+textarea,
+button,
+.report,
+.btn,
+.chart,
+.auth-card,
+.users {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+input,
+select,
+button,
+.btn,
+textarea {
+  padding: 9px 12px;
+  border-radius: 4px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 90px;
+}
+
+nav button.on,
+.radio-options label.on,
+.btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.stats div,
+.auth-card,
+.chat article {
+  background: var(--panel);
+  padding: 14px;
+  border: 1px solid var(--line);
+}
+
+dd {
+  margin: 6px 0 0;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+button.danger,
+.btn.kakao {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn.naver {
+  border-color: var(--good);
+  color: var(--good);
+}
+
+.radio-group,
+.band-form,
+.auth-card {
+  border: 1px solid var(--line);
+  margin: 16px 0;
+  padding: 14px;
+}
+
+.band-form label,
+.check {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.check {
+  flex-direction: row;
+  align-items: center;
+}
+
+.radio-options {
+  display: grid;
+  gap: 8px;
+}
+
+.radio-options label {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid transparent;
+}
+
+.radio-options small {
+  display: block;
+  color: var(--muted);
+}
+
+.error {
+  color: var(--danger);
+}
+
+.report,
+.chat pre {
+  padding: 16px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.oauth {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.oauth .btn {
+  text-align: center;
+  text-decoration: none;
+}
+
+.chart {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.job-list,
+.news {
+  padding-left: 18px;
+}
+
+.users {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.users th,
+.users td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.dev-login {
+  margin-top: 20px;
+}
+
+.primary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.state-banner {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  margin: 12px 0 20px;
+}
+
+.state-banner.running {
+  border-color: var(--good);
+}
+
+.state-banner.soft_stop,
+.state-banner.hard_kill {
+  border-color: var(--danger);
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.help-grid article {
+  border: 1px solid var(--line);
+  padding: 12px;
+  background: var(--panel);
+}
+
+.help-grid h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.pos {
+  color: var(--good);
+}
+
+.neg {
+  color: var(--danger);
+}
+
+.steps {
+  color: var(--muted);
+  padding-left: 20px;
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.presets button {
+  font-size: 13px;
+}
