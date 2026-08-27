@@ -4,7 +4,7 @@ export function Login({ onDev }: { onDev: (email: string) => void }) {
       <p className="eyebrow">helm-trader v0.2</p>
       <h1>로그인 후 관리자 승인</h1>
       <ol className="steps">
-        <li>소셜 로그인 또는 아래 로컬 입장</li>
+        <li>Google 로그인 또는 아래 로컬 입장</li>
         <li>관리자가 승인할 때까지 대기</li>
         <li>계정명 옆 설정에서 닉네임·MIN 잔고·(선택) 개인 LLM 키</li>
         <li>투자 탭: 왼쪽 수동밴드, 오른쪽 AI 분석</li>
@@ -12,12 +12,6 @@ export function Login({ onDev }: { onDev: (email: string) => void }) {
       <div className="oauth">
         <a className="btn google" href="/api/auth/google/login">
           Google로 계속
-        </a>
-        <a className="btn kakao" href="/api/auth/kakao/login">
-          Kakao로 계속
-        </a>
-        <a className="btn naver" href="/api/auth/naver/login">
-          Naver로 계속
         </a>
       </div>
       <div className="dev-login">

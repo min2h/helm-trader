@@ -41,7 +41,7 @@
 
 | 됨 | 아직 |
 | --- | --- |
-| Google/Kakao/Naver OAuth + 관리자 승인 | Nautilus 실주문 |
+| Google OAuth + 관리자 승인 | Nautilus 실주문 |
 | 유저별 params / 수동밴드 / 암호화된 개인 키 | 거래소 잔고 실시간 반영 |
 | 그리드형 현황/설정 대시보드, 차트, 보고서, 다크/라이트 | `close_position` 실부착 |
 | 개인 LLM 키 채팅 + 고정 시스템 프롬프트 + 뉴스 헤드라인 | 유료 뉴스 API |
@@ -57,8 +57,6 @@
 | `HELM_MASTER_KEY` | 개인 키 암호화 | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
 | `HELM_PUBLIC_URL` | OAuth 콜백 | 공인 IP면 `http://<공인IP>:8080`. HTTPS가 필요하면 Caddy |
 | `GOOGLE_CLIENT_ID/SECRET` | 구글 로그인 | Google Cloud OAuth. redirect: `{PUBLIC_URL}/api/auth/google/callback` |
-| `KAKAO_CLIENT_ID/SECRET` | 카카오 로그인 | Kakao Developers |
-| `NAVER_CLIENT_ID/SECRET` | 네이버 로그인 | Naver Developers |
 | `SMTP_*` | 메일 알림 | 지메일 앱 비밀번호 등 |
 | 개인 LLM 키 | AI 채팅/자동분석 | 각 사용자가 설정 화면에 입력 |
 | 개인 Binance 키 | 이후 실주문 | 출금 OFF, IP 화이트리스트 |
@@ -69,7 +67,7 @@
 ### 17.3 사용자가 직접 해야 하는 일
 
 1. Binance 현물/선물 이용 가능 여부 확인
-2. OAuth 앱 3종 생성, redirect URI 등록. 공인 IP HTTP는 일부 콘솔이 거절할 수 있어 그때만 Caddy HTTPS를 쓴다
+2. Google OAuth만 사용. 로컬은 `http://127.0.0.1:8090/api/auth/google/callback`
 3. `.env`에 관리자 이메일과 MASTER_KEY, OAuth, SMTP
 4. 가족/지인이 로그인 → 관리자 탭에서 승인
 5. 각자 설정에서 닉네임, 알림, MIN 잔고, (선택) LLM 키
@@ -115,13 +113,11 @@ Mac mini 운영으로 옮길 때
 | 변수 | 필수? | 발급 링크 | 방법 |
 | --- | --- | --- | --- |
 | `HELM_AUTH_DEV` | 로컬 개발 | — | `true`면 로그인 화면의 관리자/게스트 버튼 동작 |
-| `HELM_ADMIN_EMAILS` | OAuth 쓸 때 | — | 본인 구글/카카오/네이버 이메일을 콤마로 |
+| `HELM_ADMIN_EMAILS` | OAuth 쓸 때 | — | 본인 구글 이메일을 콤마로 |
 | `HELM_MASTER_KEY` | 개인 키 암호화 | — | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
 | `HELM_HOST` | 외부 접속 | — | `0.0.0.0`이면 이 PC 공인/LAN IP로 접속 |
 | `HELM_PUBLIC_URL` | OAuth | — | `http://<공인IP>:포트`. OAuth 콘솔 Callback에도 동일하게 |
 | `GOOGLE_CLIENT_ID` `GOOGLE_CLIENT_SECRET` | 구글 로그인 | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) | 프로젝트 생성 → OAuth 동의 화면 → 사용자 인증 정보 → OAuth 클라이언트 ID(웹) → 승인된 리디렉션 URI에 `{HELM_PUBLIC_URL}/api/auth/google/callback` |
-| `KAKAO_CLIENT_ID` `KAKAO_CLIENT_SECRET` | 카카오 로그인 | [Kakao Developers](https://developers.kakao.com/console/app) | 앱 생성 → 플랫폼 Web 등록 → 카카오 로그인 활성화 → Redirect URI `{HELM_PUBLIC_URL}/api/auth/kakao/callback` → REST API 키 / Client Secret |
-| `NAVER_CLIENT_ID` `NAVER_CLIENT_SECRET` | 네이버 로그인 | [Naver Developers](https://developers.naver.com/apps/#/register) | 애플리케이션 등록(로그인 오픈API) → Callback `{HELM_PUBLIC_URL}/api/auth/naver/callback` |
 | `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD` `SMTP_FROM` | 메일 알림 | Gmail: [앱 비밀번호](https://myaccount.google.com/apppasswords) | 2단계 인증 후 앱 비밀번호. HOST=`smtp.gmail.com` PORT=`587` |
 | `TELEGRAM_BOT_TOKEN` | 텔레그램 알림 | [BotFather](https://t.me/BotFather) | `/newbot` 후 토큰 |
 | `TELEGRAM_CHAT_ID` | 텔레그램 알림 | `https://api.telegram.org/bot<TOKEN>/getUpdates` | 봇에게 먼저 메시지 보낸 뒤 JSON의 `chat.id` |

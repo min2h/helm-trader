@@ -556,16 +556,10 @@ button:hover,
   box-shadow: none;
 }
 
-button.danger,
-.btn.kakao {
+button.danger {
   border-color: var(--danger);
   color: var(--danger);
   background: var(--danger-dim);
-}
-
-.btn.naver {
-  border-color: var(--good);
-  color: var(--good);
 }
 
 .pos {

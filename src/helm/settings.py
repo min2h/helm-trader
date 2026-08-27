@@ -40,10 +40,6 @@ class Settings(BaseSettings):
 
     google_client_id: str = ""
     google_client_secret: str = ""
-    kakao_client_id: str = ""
-    kakao_client_secret: str = ""
-    naver_client_id: str = ""
-    naver_client_secret: str = ""
 
     smtp_host: str = ""
     smtp_port: int = 587
