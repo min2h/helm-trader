@@ -15,7 +15,7 @@ export function Login({ onDev }: { onDev: (email: string) => void }) {
         </a>
       </div>
       <div className="dev-login">
-        <p className="muted">OAuth 앱이 없으면 로컬 개발 입장을 씁니다. `.env`에 `HELM_AUTH_DEV=true` 필요.</p>
+        <p className="muted">Google 버튼이 안 되면 아래 로컬 입장만 씁니다.</p>
         <div className="actions">
           <button type="button" className="primary" onClick={() => onDev("admin@local")}>
             관리자로 바로 입장

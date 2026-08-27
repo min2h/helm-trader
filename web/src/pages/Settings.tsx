@@ -289,11 +289,10 @@ export function Settings({
             </span>
           </div>
           <p className="muted">
-            서버 `.env`가 아니라 이 계정 DB에 암호화해 둡니다. 기본은 마스킹, 보기로 확인합니다. Binance 발급:{" "}
+            이 계정에만 저장됩니다. 기본은 마스킹, 보기로 확인합니다. Binance 발급:{" "}
             <a href="https://www.binance.com/en/my/settings/api-management" target="_blank" rel="noreferrer">
               API Management
             </a>
-            . 절차는 아래 가이드.
           </p>
           <div className="form-grid">
             <label>

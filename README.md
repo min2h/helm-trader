@@ -51,7 +51,7 @@
 
 ### 17.2 사용자가 발급해야 하는 키
 
-`.env.example`을 `.env`로 복사한다. 유저 Binance/LLM 키는 `.env`가 아니라 **대시보드 설정**에 넣는다. 설정 화면에도 같은 목록이 있다.
+운영자만 `.env.example`을 `.env`로 복사한다. **대시보드를 쓰는 사람 화면에는 `.env`를 적지 않는다.** 가족/지인은 설정에 Binance·LLM 키만 넣는다.
 
 | 무엇 | 넣는 곳 | 발급 사이트 | 방법 |
 | --- | --- | --- | --- |
@@ -71,7 +71,7 @@
 5. **Enable Withdrawals / Internal Transfer / Universal Transfer는 끄기.**
 6. **Restrict access to trusted IPs only.** 이 PC 공인 IP는 https://api.ipify.org . Unrestricted는 약 90일 만료.
 7. API Key · Secret을 즉시 복사(Secret은 한 번만 보이는 경우가 많음).
-8. 대시보드 설정 → Binance key/secret에 넣고 저장. GitHub·`.env`·채팅에 올리지 말 것.
+8. 대시보드 설정 → Binance key/secret에 넣고 저장. 채팅·메일에 올리지 말 것.
 | Anthropic API 키 | 설정 화면 | [Anthropic Console](https://console.anthropic.com/settings/keys) | Create Key 후 LLM=Anthropic |
 | OpenAI API 키 | 설정 화면 | [OpenAI API keys](https://platform.openai.com/api-keys) | Create key 후 LLM=OpenAI |
 | `TELEGRAM_BOT_TOKEN` / `CHAT_ID` | `.env` | [BotFather](https://t.me/BotFather) | `/newbot` 후 토큰, 본인 채팅 ID |
