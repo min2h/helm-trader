@@ -100,6 +100,13 @@ CREATE INDEX IF NOT EXISTS idx_market_symbols_quote ON market_symbols(quote);
 """
 
 
+def _secret_hint(value: str) -> str:
+    if not value:
+        return ""
+    tail = value[-4:] if len(value) >= 4 else value
+    return f"{'•' * max(8, min(len(value) - 4, 16))}{tail}"
+
+
 def _locked(fn):
     @wraps(fn)
     def inner(self, *args, **kwargs):
@@ -307,13 +314,14 @@ class Database:
         self.audit(user_id, "secrets", "updated")
 
     def secret_flags(self, user_id: int) -> dict[str, bool | str]:
-        row = self._conn.execute("SELECT * FROM user_secrets WHERE user_id=?", (user_id,)).fetchone()
-        if not row:
-            return {"binance": False, "llm": False, "llm_provider": ""}
+        plain = self.decrypt_secrets(user_id)
         return {
-            "binance": bool(row["binance_key"] and row["binance_secret"]),
-            "llm": bool(row["llm_key"]),
-            "llm_provider": row["llm_provider"],
+            "binance": bool(plain["binance_key"] and plain["binance_secret"]),
+            "llm": bool(plain["llm_key"]),
+            "llm_provider": plain["llm_provider"],
+            "llm_hint": _secret_hint(plain["llm_key"]),
+            "binance_key_hint": _secret_hint(plain["binance_key"]),
+            "binance_secret_hint": _secret_hint(plain["binance_secret"]),
         }
 
     def decrypt_secrets(self, user_id: int) -> dict[str, str]:

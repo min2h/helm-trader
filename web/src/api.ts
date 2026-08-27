@@ -20,7 +20,20 @@ export type Me = {
   theme: string;
   min_equity_usdt: number;
   notify_address: string;
-  secrets: { binance: boolean; llm: boolean; llm_provider: string };
+  secrets: {
+    binance: boolean;
+    llm: boolean;
+    llm_provider: string;
+    llm_hint?: string;
+    binance_key_hint?: string;
+    binance_secret_hint?: string;
+  };
+};
+
+export type StoredSecrets = Me["secrets"] & {
+  llm_key: string;
+  binance_key: string;
+  binance_secret: string;
 };
 
 export const api = {
@@ -30,8 +43,9 @@ export const api = {
     request<Me>("/api/auth/dev", { method: "POST", body: JSON.stringify({ email, admin }) }),
   patchMe: (body: Record<string, unknown>) =>
     request<Me>("/api/me", { method: "PATCH", body: JSON.stringify(body) }),
+  getSecrets: () => request<StoredSecrets>("/api/me/secrets"),
   putSecrets: (body: Record<string, string>) =>
-    request("/api/me/secrets", { method: "PUT", body: JSON.stringify(body) }),
+    request<Me["secrets"]>("/api/me/secrets", { method: "PUT", body: JSON.stringify(body) }),
   params: () => request<Record<string, unknown>>("/api/params"),
   putParams: (patch: Record<string, unknown>) =>
     request<Record<string, unknown>>("/api/params", { method: "PUT", body: JSON.stringify(patch) }),

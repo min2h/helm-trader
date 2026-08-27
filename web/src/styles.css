@@ -402,6 +402,21 @@ button:hover,
   width: auto;
 }
 
+.secret-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.secret-row input {
+  flex: 1;
+}
+
+.secret-row button {
+  flex: 0 0 auto;
+  min-width: 72px;
+}
+
 .chip,
 .badge {
   display: inline-flex;

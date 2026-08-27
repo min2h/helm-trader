@@ -1,8 +1,9 @@
-import { useState } from "react";
-import type { Me } from "../api";
+import { useEffect, useState } from "react";
+import { api, type Me } from "../api";
 import { LoadingBar } from "../LoadingBar";
 import { NumberField } from "../NumberField";
 import { RadioGroup } from "../RadioGroup";
+import { SecretField } from "../SecretField";
 import { formatDecimal, formatInt, formatPct, formatMoney, isEmail, parseAmount } from "../format";
 import { KeyGuide } from "./KeyGuide";
 
@@ -98,6 +99,28 @@ export function Settings({
   const [binanceSecret, setBinanceSecret] = useState("");
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
+  const [hints, setHints] = useState({
+    llm: me.secrets.llm_hint || "",
+    binanceKey: me.secrets.binance_key_hint || "",
+    binanceSecret: me.secrets.binance_secret_hint || "",
+  });
+
+  useEffect(() => {
+    void api
+      .getSecrets()
+      .then((stored) => {
+        setLlmProvider(stored.llm_provider || "anthropic");
+        setLlmKey(stored.llm_key || "");
+        setBinanceKey(stored.binance_key || "");
+        setBinanceSecret(stored.binance_secret || "");
+        setHints({
+          llm: stored.llm_hint || "",
+          binanceKey: stored.binance_key_hint || "",
+          binanceSecret: stored.binance_secret_hint || "",
+        });
+      })
+      .catch(() => undefined);
+  }, []);
   const risk = asRecord(params?.risk);
   const strategy = asRecord(params?.strategy);
   const trend = asRecord(strategy.trend);
@@ -239,10 +262,16 @@ export function Settings({
                 binance_key: binanceKey,
                 binance_secret: binanceSecret,
               });
-              setLlmKey("");
-              setBinanceKey("");
-              setBinanceSecret("");
-              setNotice("키를 저장했습니다. 값은 다시 보이지 않습니다.");
+              const stored = await api.getSecrets();
+              setLlmKey(stored.llm_key || "");
+              setBinanceKey(stored.binance_key || "");
+              setBinanceSecret(stored.binance_secret || "");
+              setHints({
+                llm: stored.llm_hint || "",
+                binanceKey: stored.binance_key_hint || "",
+                binanceSecret: stored.binance_secret_hint || "",
+              });
+              setNotice("키를 DB에 저장했습니다. 보기/숨기기로 확인할 수 있습니다.");
             } catch (err) {
               setNotice(err instanceof Error ? err.message : "키 저장 실패");
             } finally {
@@ -250,7 +279,7 @@ export function Settings({
             }
           }}
         >
-          <h3>개인 키 (쓰기 전용)</h3>
+          <h3>개인 키 (DB 저장)</h3>
           <div className="key-status">
             <span className={`badge ${me.secrets.llm ? "good" : "warn"}`}>
               LLM {me.secrets.llm ? "설정됨" : "없음"}
@@ -259,7 +288,7 @@ export function Settings({
               Binance {me.secrets.binance ? "설정됨" : "없음"}
             </span>
           </div>
-          <p className="muted">저장된 키는 다시 보여주지 않습니다. 서버 `.env`가 아니라 여기만 씁니다.</p>
+          <p className="muted">서버 `.env`가 아니라 이 계정 DB에 암호화해 둡니다. 기본은 마스킹, 보기로 확인합니다.</p>
           <div className="form-grid">
             <label>
               LLM
@@ -268,18 +297,14 @@ export function Settings({
                 <option value="openai">OpenAI</option>
               </select>
             </label>
-            <label>
-              LLM API 키
-              <input type="password" value={llmKey} onChange={(e) => setLlmKey(e.target.value)} />
-            </label>
-            <label>
-              Binance key
-              <input type="password" value={binanceKey} onChange={(e) => setBinanceKey(e.target.value)} />
-            </label>
-            <label>
-              Binance secret
-              <input type="password" value={binanceSecret} onChange={(e) => setBinanceSecret(e.target.value)} />
-            </label>
+            <SecretField label="LLM API 키" value={llmKey} onChange={setLlmKey} hint={hints.llm} />
+            <SecretField label="Binance key" value={binanceKey} onChange={setBinanceKey} hint={hints.binanceKey} />
+            <SecretField
+              label="Binance secret"
+              value={binanceSecret}
+              onChange={setBinanceSecret}
+              hint={hints.binanceSecret}
+            />
           </div>
           <button type="submit" className="primary" disabled={Boolean(busy)}>
             {busy.startsWith("키") ? "저장 중…" : "키 저장"}

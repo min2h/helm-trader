@@ -117,6 +117,16 @@ def patch_me(body: dict, request: Request, user: User = Depends(current_user)) -
     return updated.to_public()
 
 
+@router.get("/me/secrets")
+@limiter.limit("30/minute")
+def get_secrets(request: Request, user: User = Depends(current_user)) -> dict:
+    if user.status != "approved":
+        raise HTTPException(403, "pending approval")
+    plain = state_of(request).db.decrypt_secrets(user.id)
+    flags = state_of(request).db.secret_flags(user.id)
+    return {**flags, **plain}
+
+
 @router.put("/me/secrets")
 def put_secrets(body: dict, request: Request, user: User = Depends(current_user)) -> dict:
     approved = user if user.status == "approved" else None

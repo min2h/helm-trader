@@ -46,7 +46,7 @@ def test_admin_approves_then_params_work(tmp_path) -> None:
     assert patched.json()["strategy_mode"] == "grid"
 
 
-def test_secrets_are_write_only(tmp_path) -> None:
+def test_secrets_are_masked_on_me_and_readable_by_owner(tmp_path) -> None:
     client = _client(tmp_path)
     client.post("/api/auth/dev", json={"email": "admin@local", "admin": True})
     flags = client.put(
@@ -54,5 +54,9 @@ def test_secrets_are_write_only(tmp_path) -> None:
         json={"llm_provider": "anthropic", "llm_key": "sk-test-secret"},
     )
     assert flags.json()["llm"] is True
+    assert flags.json()["llm_hint"].endswith("cret")
     me = client.get("/api/me").json()
     assert "sk-test-secret" not in str(me)
+    assert me["secrets"]["llm_hint"].endswith("cret")
+    stored = client.get("/api/me/secrets").json()
+    assert stored["llm_key"] == "sk-test-secret"
